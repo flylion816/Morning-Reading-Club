@@ -1,5 +1,5 @@
 jest.mock('../../services/insight.service', () => ({}));
-jest.mock('../../services/danmaku.service', () => ({
+jest.mock('../../pages/insight-detail/danmaku.service', () => ({
   postDanmaku: jest.fn()
 }));
 jest.mock('../../services/activity.service', () => ({
@@ -35,7 +35,7 @@ describe('insight-detail poster rendering', () => {
       }
     }));
 
-    danmakuService = require('../../services/danmaku.service');
+    danmakuService = require('../../pages/insight-detail/danmaku.service');
     danmakuService.postDanmaku.mockReset();
     danmakuService.postDanmaku.mockResolvedValue({
       _id: 'danmaku_1',

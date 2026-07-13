@@ -1,4 +1,4 @@
-jest.mock('../../services/adminWorkbench.service', () => ({
+jest.mock('../../pages/admin-workbench/adminWorkbench.service', () => ({
   searchUsers: jest.fn(),
   getUserDetail: jest.fn(),
   getActivities: jest.fn(),
@@ -19,7 +19,7 @@ describe('admin workbench page', () => {
       return config;
     });
 
-    service = require('../../services/adminWorkbench.service');
+    service = require('../../pages/admin-workbench/adminWorkbench.service');
     service.searchUsers.mockResolvedValue({
       list: [{
         userId: 'user_1',
@@ -149,7 +149,7 @@ describe('admin workbench page', () => {
 
     expect(service.getActivityRegistrations).not.toHaveBeenCalled();
     expect(wx.navigateTo).toHaveBeenCalledWith({
-      url: '/pages/admin-activity-registrations/admin-activity-registrations?activityId=activity_1'
+      url: '/pages/admin-workbench/activity-registrations/activity-registrations?activityId=activity_1'
     });
   });
 });

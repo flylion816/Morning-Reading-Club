@@ -1,5 +1,5 @@
 const request = require('../../utils/request');
-const adminAnalyticsService = require('../../services/adminAnalytics.service');
+const adminAnalyticsService = require('../../pages/admin-analytics/adminAnalytics.service');
 
 jest.mock('../../utils/request');
 

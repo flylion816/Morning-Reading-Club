@@ -7,40 +7,168 @@
     "pages/course-detail/course-detail",
     "pages/reading-mode/reading-mode",
     "pages/checkin/checkin",
-    "pages/ranking/ranking",
-    "pages/checkin-records/checkin-records",
-    "pages/completion-reports/completion-reports",
-    "pages/completion-report-detail/completion-report-detail",
-    "pages/members/members",
     "pages/insights/insights",
     "pages/insight-requests/insight-requests",
-    "pages/insight-detail/insight-detail",
-    "pages/insight-edit/insight-edit",
-    "pages/admin-section-insights/admin-section-insights",
-    "pages/admin-workbench/admin-workbench",
-    "pages/admin-activity-registrations/admin-activity-registrations",
-    "pages/admin-analytics/admin-analytics",
-    "pages/profile-others/profile-others",
-    "pages/notification-settings/notification-settings",
-    "pages/notifications/notifications",
     "pages/share/share",
     "pages/period-detail/period-detail",
     "pages/login/login",
-    "pages/enrollment/enrollment",
-    "pages/payment/payment",
-    "pages/invite/invite",
     "pages/privacy-policy/privacy-policy",
     "pages/user-agreement/user-agreement",
     "pages/profile/profile",
     "pages/edit-profile/edit-profile",
-    "pages/podcast-player/podcast-player",
-    "pages/zaichang/list/list",
-    "pages/zaichang/detail/detail",
-    "pages/zaichang/publish/publish",
-    "pages/community-activity-detail/community-activity-detail",
-    "pages/my-community-activities/my-community-activities",
-    "pages/activities/activities",
-    "pages/my-coupons/my-coupons"
+    "pages/podcast-player/podcast-player"
+  ],
+  "subPackages": [
+    {
+      "name": "zaichang",
+      "root": "pages/zaichang",
+      "pages": [
+        "list/list",
+        "detail/detail",
+        "publish/publish"
+      ]
+    },
+    {
+      "name": "admin-analytics",
+      "root": "pages/admin-analytics",
+      "pages": [
+        "admin-analytics"
+      ]
+    },
+    {
+      "name": "admin-workbench",
+      "root": "pages/admin-workbench",
+      "pages": [
+        "admin-workbench",
+        "activity-registrations/activity-registrations"
+      ]
+    },
+    {
+      "name": "admin-section-insights",
+      "root": "pages/admin-section-insights",
+      "pages": [
+        "admin-section-insights"
+      ]
+    },
+    {
+      "name": "community-activity-detail",
+      "root": "pages/community-activity-detail",
+      "pages": [
+        "community-activity-detail"
+      ]
+    },
+    {
+      "name": "my-community-activities",
+      "root": "pages/my-community-activities",
+      "pages": [
+        "my-community-activities"
+      ]
+    },
+    {
+      "name": "activities",
+      "root": "pages/activities",
+      "pages": [
+        "activities"
+      ]
+    },
+    {
+      "name": "my-coupons",
+      "root": "pages/my-coupons",
+      "pages": [
+        "my-coupons"
+      ]
+    },
+    {
+      "name": "insight-detail",
+      "root": "pages/insight-detail",
+      "pages": [
+        "insight-detail"
+      ]
+    },
+    {
+      "name": "insight-edit",
+      "root": "pages/insight-edit",
+      "pages": [
+        "insight-edit"
+      ]
+    },
+    {
+      "name": "enrollment",
+      "root": "pages/enrollment",
+      "pages": [
+        "enrollment"
+      ]
+    },
+    {
+      "name": "payment",
+      "root": "pages/payment",
+      "pages": [
+        "payment"
+      ]
+    },
+    {
+      "name": "invite",
+      "root": "pages/invite",
+      "pages": [
+        "invite"
+      ]
+    },
+    {
+      "name": "notifications",
+      "root": "pages/notifications",
+      "pages": [
+        "notifications"
+      ]
+    },
+    {
+      "name": "notification-settings",
+      "root": "pages/notification-settings",
+      "pages": [
+        "notification-settings"
+      ]
+    },
+    {
+      "name": "completion-reports",
+      "root": "pages/completion-reports",
+      "pages": [
+        "completion-reports"
+      ]
+    },
+    {
+      "name": "completion-report-detail",
+      "root": "pages/completion-report-detail",
+      "pages": [
+        "completion-report-detail"
+      ]
+    },
+    {
+      "name": "checkin-records",
+      "root": "pages/checkin-records",
+      "pages": [
+        "checkin-records"
+      ]
+    },
+    {
+      "name": "profile-others",
+      "root": "pages/profile-others",
+      "pages": [
+        "profile-others"
+      ]
+    },
+    {
+      "name": "ranking",
+      "root": "pages/ranking",
+      "pages": [
+        "ranking"
+      ]
+    },
+    {
+      "name": "members",
+      "root": "pages/members",
+      "pages": [
+        "members"
+      ]
+    }
   ],
   "window": {
     "navigationBarTitleText": "凡人共读",

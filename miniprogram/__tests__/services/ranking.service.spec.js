@@ -11,7 +11,7 @@
  * - User progress tracking
  */
 
-const rankingService = require('../../services/ranking.service');
+const rankingService = require('../../pages/ranking/ranking.service');
 const request = require('../../utils/request');
 const { createMockRankingItem, createMockUser, generateId } = require('../fixtures');
 

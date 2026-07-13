@@ -2,6 +2,10 @@
 // 切换当前构建租户：生成 current-tenant.js / theme.wxss，外科式改写 app.json / project.config.json
 const fs = require('fs');
 const path = require('path');
+const {
+  buildSharedAssetIgnoreEntries,
+  isManagedSharedAssetIgnoreEntry
+} = require('./tenant-pack-ignore');
 
 const ROOT = path.resolve(__dirname, '..');           // miniprogram/
 const REPO = path.resolve(ROOT, '..');                // 仓库根
@@ -39,6 +43,9 @@ function isManagedIgnoreEntry(item, entries) {
   if (entries.some(entry => entry.value === item.value && entry.type === item.type)) {
     return true;
   }
+  if (isManagedSharedAssetIgnoreEntry(item)) {
+    return true;
+  }
   return /^(miniprogram\/)?assets\/tenants\/[^/]+$/.test(item.value) ||
     /^(miniprogram\/)?assets\/tenants\/[^/]+\/share-cover\.jpg$/.test(item.value);
 }
@@ -72,7 +79,8 @@ function buildIgnoreEntries(prefix = '') {
     { value: `${prefix}__tests__`, type: 'folder' },
     { value: `${prefix}e2e`, type: 'folder' },
     { value: `${prefix}.omc`, type: 'folder' },
-    { value: `${prefix}assets/icons/.omc`, type: 'folder' }
+    { value: `${prefix}assets/icons/.omc`, type: 'folder' },
+    ...buildSharedAssetIgnoreEntries({ prefix, shareCover: cfg.shareCover })
   ];
 
   tenantDirs

@@ -383,7 +383,7 @@ Page({
 
   // 通知后端确认支付
   async confirmActivityPayment(paymentId) {
-    const paymentService = require('../../services/payment.service');
+    const paymentService = require('./payment-confirmation.service');
     try {
       await paymentService.confirmPayment(paymentId, { transactionId: '' });
     } catch (err) {

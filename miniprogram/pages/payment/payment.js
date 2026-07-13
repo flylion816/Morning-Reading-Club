@@ -3,7 +3,7 @@
  * 处理报名后的支付流程
  */
 
-const paymentService = require('../../services/payment.service');
+const paymentService = require('./payment.service');
 const courseService = require('../../services/course.service');
 const envConfig = require('../../config/env');
 const subscribeAutoTopUp = require('../../utils/subscribe-auto-topup');

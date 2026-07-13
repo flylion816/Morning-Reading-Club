@@ -11,7 +11,7 @@
  * - Transaction validation and security
  */
 
-const paymentService = require('../../services/payment.service');
+const paymentService = require('../../pages/payment/payment.service');
 const request = require('../../utils/request');
 const { createMockPayment, createMockUser, createMockPeriod, generateId } = require('../fixtures');
 const WxMock = require('../mocks/wx');

@@ -7,7 +7,7 @@
  */
 
 const notificationServiceModule = require('../../services/notification.service');
-const websocketServiceModule = require('../../services/websocket.service');
+const websocketServiceModule = require('./websocket.service');
 const constants = require('../../config/constants');
 const { getLastTextChar, getUserAvatarDisplay } = require('../../utils/avatar');
 const { tenantStorage } = require('../../utils/storage');

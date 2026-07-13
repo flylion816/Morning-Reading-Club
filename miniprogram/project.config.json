@@ -22,6 +22,50 @@
         "type": "folder"
       },
       {
+        "value": "assets/icons/home.png",
+        "type": "file"
+      },
+      {
+        "value": "assets/icons/home-active.png",
+        "type": "file"
+      },
+      {
+        "value": "assets/icons/book.png",
+        "type": "file"
+      },
+      {
+        "value": "assets/icons/book-active.png",
+        "type": "file"
+      },
+      {
+        "value": "assets/icons/my.png",
+        "type": "file"
+      },
+      {
+        "value": "assets/icons/my-active.png",
+        "type": "file"
+      },
+      {
+        "value": ".DS_Store",
+        "type": "file"
+      },
+      {
+        "value": "assets/.DS_Store",
+        "type": "file"
+      },
+      {
+        "value": "assets/images/.DS_Store",
+        "type": "file"
+      },
+      {
+        "value": "assets/tenants/.DS_Store",
+        "type": "file"
+      },
+      {
+        "value": "assets/images/share-default.jpg",
+        "type": "file"
+      },
+      {
         "value": "assets/tenants/chaoren",
         "type": "folder"
       },

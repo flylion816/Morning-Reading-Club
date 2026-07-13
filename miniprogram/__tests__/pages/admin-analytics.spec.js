@@ -1,4 +1,4 @@
-jest.mock('../../services/adminAnalytics.service', () => ({
+jest.mock('../../pages/admin-analytics/adminAnalytics.service', () => ({
   getPeriods: jest.fn(),
   getOverview: jest.fn(),
   getActivity: jest.fn()
@@ -17,7 +17,7 @@ describe('admin analytics page', () => {
       return config;
     });
 
-    service = require('../../services/adminAnalytics.service');
+    service = require('../../pages/admin-analytics/adminAnalytics.service');
     service.getPeriods.mockResolvedValue({
       list: [{ id: 'period_1', name: '第八期' }]
     });

@@ -1,4 +1,4 @@
-const adminWorkbenchService = require('../../services/adminWorkbench.service');
+const adminWorkbenchService = require('../adminWorkbench.service');
 
 const PAGE_SIZE = 20;
 

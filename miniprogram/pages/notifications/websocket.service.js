@@ -3,10 +3,10 @@
  * 处理与后端的 WebSocket 连接和实时通知推送
  */
 
-const envConfig = require('../config/env');
-const constants = require('../config/constants');
-const logger = require('../utils/logger');
-const { tenantStorage } = require('../utils/storage');
+const envConfig = require('../../config/env');
+const constants = require('../../config/constants');
+const logger = require('../../utils/logger');
+const { tenantStorage } = require('../../utils/storage');
 
 class WebSocketService {
   constructor() {
@@ -57,7 +57,7 @@ class WebSocketService {
         logger.debug('[WebSocket] 正在连接到:', socketUrl);
 
         // 先获取 wsToken 再建立连接（§7.4.5.2 兜底方案）
-        const request = require('../utils/request');
+        const request = require('../../utils/request');
         request.post('/auth/ws-token', {})
           .then((wsTokenData) => {
             const wsToken = wsTokenData.token || wsTokenData.wsToken;

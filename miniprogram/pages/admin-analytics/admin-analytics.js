@@ -1,4 +1,4 @@
-const adminAnalyticsService = require('../../services/adminAnalytics.service');
+const adminAnalyticsService = require('./adminAnalytics.service');
 const { THEME_PRIMARY } = require('../../utils/theme');
 
 const DATE_PRESETS = [

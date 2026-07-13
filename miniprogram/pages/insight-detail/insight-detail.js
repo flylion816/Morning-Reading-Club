@@ -1,5 +1,5 @@
 const insightService = require('../../services/insight.service');
-const danmakuService = require('../../services/danmaku.service');
+const danmakuService = require('./danmaku.service');
 const env = require('../../config/env');
 const { renderInsightRichTextContent } = require('../../utils/markdown');
 const activityService = require('../../services/activity.service');

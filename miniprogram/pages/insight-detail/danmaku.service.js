@@ -1,5 +1,5 @@
-const request = require('../utils/request');
-const { THEME_PRIMARY } = require('../utils/theme');
+const request = require('../../utils/request');
+const { THEME_PRIMARY } = require('../../utils/theme');
 
 const danmakuService = {
   getDanmaku(insightId) {

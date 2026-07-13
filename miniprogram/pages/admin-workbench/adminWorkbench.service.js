@@ -1,4 +1,4 @@
-const request = require('../utils/request');
+const request = require('../../utils/request');
 
 function cleanParams(params = {}) {
   return Object.keys(params).reduce((acc, key) => {

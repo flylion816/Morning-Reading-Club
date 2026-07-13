@@ -1,5 +1,5 @@
 // 排行榜页面
-const rankingService = require('../../services/ranking.service');
+const rankingService = require('./ranking.service');
 const { getAvatarColorByUserId } = require('../../utils/formatters');
 const { getLastTextChar } = require('../../utils/avatar');
 const {

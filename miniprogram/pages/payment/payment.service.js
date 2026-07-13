@@ -2,7 +2,7 @@
  * 支付服务
  */
 
-const request = require('../utils/request');
+const request = require('../../utils/request');
 
 module.exports = {
   /**

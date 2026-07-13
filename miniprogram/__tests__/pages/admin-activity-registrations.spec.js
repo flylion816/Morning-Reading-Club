@@ -1,4 +1,4 @@
-jest.mock('../../services/adminWorkbench.service', () => ({
+jest.mock('../../pages/admin-workbench/adminWorkbench.service', () => ({
   getActivityRegistrations: jest.fn()
 }));
 
@@ -15,7 +15,7 @@ describe('admin activity registrations page', () => {
       return config;
     });
 
-    service = require('../../services/adminWorkbench.service');
+    service = require('../../pages/admin-workbench/adminWorkbench.service');
     service.getActivityRegistrations.mockResolvedValue({
       activity: {
         activityId: 'activity_1',
@@ -78,7 +78,7 @@ describe('admin activity registrations page', () => {
       pagination: { page: 1, pageSize: 20, total: 2, totalPages: 2, hasMore: true }
     });
 
-    require('../../pages/admin-activity-registrations/admin-activity-registrations');
+    require('../../pages/admin-workbench/activity-registrations/activity-registrations');
     pageInstance = {
       ...pageConfig,
       data: JSON.parse(JSON.stringify(pageConfig.data)),

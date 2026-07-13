@@ -2,8 +2,8 @@
  * 排行榜服务
  */
 
-const request = require('../utils/request');
-const apiConfig = require('../config/api.config');
+const request = require('../../utils/request');
+const apiConfig = require('../../config/api.config');
 
 module.exports = {
   /**

@@ -1,4 +1,4 @@
-const adminWorkbenchService = require('../../services/adminWorkbench.service');
+const adminWorkbenchService = require('./adminWorkbench.service');
 
 const PAGE_SIZE = 20;
 
@@ -263,7 +263,7 @@ Page({
     const activityId = e.currentTarget.dataset.id;
     if (!activityId) return;
     wx.navigateTo({
-      url: `/pages/admin-activity-registrations/admin-activity-registrations?activityId=${activityId}`
+      url: `/pages/admin-workbench/activity-registrations/activity-registrations?activityId=${activityId}`
     });
   }
 });

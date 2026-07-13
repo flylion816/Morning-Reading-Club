@@ -1,5 +1,5 @@
 const request = require('../../utils/request');
-const adminWorkbenchService = require('../../services/adminWorkbench.service');
+const adminWorkbenchService = require('../../pages/admin-workbench/adminWorkbench.service');
 
 jest.mock('../../utils/request');
 

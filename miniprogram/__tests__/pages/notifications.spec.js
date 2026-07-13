@@ -13,7 +13,7 @@ jest.mock('../../services/notification.service', () => ({
   }
 }));
 
-jest.mock('../../services/websocket.service', () => ({
+jest.mock('../../pages/notifications/websocket.service', () => ({
   __esModule: true,
   default: {
     connect: jest.fn(() => Promise.resolve()),
