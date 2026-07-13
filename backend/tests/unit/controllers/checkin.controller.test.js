@@ -763,6 +763,101 @@ describe('Checkin Controller', () => {
   });
 
   describe('getCheckinDetail', () => {
+    it('应该允许已登录但未参加当前期次的用户查看公开打卡', async () => {
+      const checkinId = new mongoose.Types.ObjectId();
+      const periodId = new mongoose.Types.ObjectId();
+      req.params = { checkinId };
+      req.user = { userId: new mongoose.Types.ObjectId() };
+
+      const mockCheckin = {
+        _id: checkinId,
+        periodId,
+        isPublic: true,
+        likes: [],
+        toObject() {
+          return { ...this, toObject: undefined };
+        }
+      };
+
+      const populateStub1 = sandbox.stub().returnsThis();
+      const populateStub2 = sandbox.stub().returnsThis();
+      const populateStub3 = sandbox.stub().returnsThis();
+      const populateStub4 = sandbox.stub().resolves(mockCheckin);
+
+      populateStub1.returns({ populate: populateStub2 });
+      populateStub2.returns({ populate: populateStub3 });
+      populateStub3.returns({ populate: populateStub4 });
+
+      CheckinStub.findById.returns({ populate: populateStub1 });
+      communityAccessServiceStub.ensurePeriodCommunityAccess.resolves(false);
+
+      await checkinController.getCheckinDetail(req, res, next);
+
+      expect(communityAccessServiceStub.ensurePeriodCommunityAccess.called).to.be.false;
+      expect(res.json.called).to.be.true;
+    });
+
+    it('应该拒绝未登录用户查看私密打卡', async () => {
+      const checkinId = new mongoose.Types.ObjectId();
+      req.params = { checkinId };
+
+      const mockCheckin = {
+        _id: checkinId,
+        isPublic: false,
+        likes: []
+      };
+
+      const populateStub1 = sandbox.stub().returnsThis();
+      const populateStub2 = sandbox.stub().returnsThis();
+      const populateStub3 = sandbox.stub().returnsThis();
+      const populateStub4 = sandbox.stub().resolves(mockCheckin);
+
+      populateStub1.returns({ populate: populateStub2 });
+      populateStub2.returns({ populate: populateStub3 });
+      populateStub3.returns({ populate: populateStub4 });
+
+      CheckinStub.findById.returns({ populate: populateStub1 });
+
+      await checkinController.getCheckinDetail(req, res, next);
+
+      expect(communityAccessServiceStub.ensurePeriodCommunityAccess.called).to.be.false;
+      expect(res.status.calledWith(403)).to.be.true;
+    });
+
+    it('应该对已登录用户查看私密打卡保留期次权限校验', async () => {
+      const checkinId = new mongoose.Types.ObjectId();
+      const periodId = new mongoose.Types.ObjectId();
+      const userId = new mongoose.Types.ObjectId();
+      req.params = { checkinId };
+      req.user = { userId };
+
+      const mockCheckin = {
+        _id: checkinId,
+        periodId,
+        isPublic: false,
+        likes: []
+      };
+
+      const populateStub1 = sandbox.stub().returnsThis();
+      const populateStub2 = sandbox.stub().returnsThis();
+      const populateStub3 = sandbox.stub().returnsThis();
+      const populateStub4 = sandbox.stub().resolves(mockCheckin);
+
+      populateStub1.returns({ populate: populateStub2 });
+      populateStub2.returns({ populate: populateStub3 });
+      populateStub3.returns({ populate: populateStub4 });
+
+      CheckinStub.findById.returns({ populate: populateStub1 });
+      communityAccessServiceStub.ensurePeriodCommunityAccess.resolves(false);
+
+      await checkinController.getCheckinDetail(req, res, next);
+
+      expect(
+        communityAccessServiceStub.ensurePeriodCommunityAccess.calledWith(res, userId, periodId)
+      ).to.be.true;
+      expect(res.json.called).to.be.false;
+    });
+
     it('应该返回打卡详情', async () => {
       const checkinId = new mongoose.Types.ObjectId();
       req.params = { checkinId };

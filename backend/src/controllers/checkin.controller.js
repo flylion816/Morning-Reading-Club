@@ -788,17 +788,15 @@ async function getCheckinDetail(req, res, next) {
       return res.status(404).json(errors.notFound('打卡记录不存在'));
     }
 
-    if (requestUserId) {
-      // 已登录：走原有付费权限校验
-      const hasCommunityAccess = await ensurePeriodCommunityAccess(
-        res,
-        requestUserId,
-        checkin.periodId?._id || checkin.periodId
-      );
-      if (!hasCommunityAccess) return;
-    } else {
-      // 未登录：只允许访问公开打卡
-      if (checkin.isPublic === false) {
+    if (checkin.isPublic === false) {
+      if (requestUserId) {
+        const hasCommunityAccess = await ensurePeriodCommunityAccess(
+          res,
+          requestUserId,
+          checkin.periodId?._id || checkin.periodId
+        );
+        if (!hasCommunityAccess) return;
+      } else {
         return res.status(403).json(errors.forbidden('该打卡仅登录用户可见'));
       }
     }
