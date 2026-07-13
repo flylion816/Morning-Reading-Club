@@ -2,6 +2,7 @@ const insightService = require('../../services/insight.service');
 const userService = require('../../services/user.service');
 const enrollmentService = require('../../services/enrollment.service');
 const activityService = require('../../services/activity.service');
+const courseService = require('../../services/course.service');
 const logger = require('../../utils/logger');
 const { tenantStorage } = require('../../utils/storage');
 const { richContentToPlainText } = require('../../utils/markdown');
@@ -71,7 +72,10 @@ Page({
     isSearchMode: false,
     searchLoading: false,
     searchResults: [],
-    otherSearchResults: []
+    otherSearchResults: [],
+    periodOptions: [{ id: '', name: '所有期次' }],
+    selectedPeriodIndex: 0,
+    selectedPeriodId: ''
   },
 
   onLoad(options) {
@@ -123,7 +127,8 @@ Page({
       headerAvatarText: initialHeaderAvatar.avatarText,
       headerAvatarColor: initialHeaderAvatar.avatarColor,
       headerTitle,
-      headerDesc
+      headerDesc,
+      selectedPeriodId: options.periodId || ''
     });
 
     logger.debug('📋 insights.onLoad - 参数:', {
@@ -139,6 +144,7 @@ Page({
       this.loadTargetUserInfo();
     }
 
+    this.loadPeriodOptions();
     this.loadInsights();
 
     if (!targetUserId && initialTab === 'others') {
@@ -283,6 +289,7 @@ Page({
       pendingRequestCount,
       rejectedRequestCount
     });
+    this.applyInsightFilters();
   },
 
   switchTab(e) {
@@ -290,11 +297,83 @@ Page({
     if (tab === this.data.activeTab) return;
     this.setData({ activeTab: tab });
 
-    if (this.data.activeSearchKeyword) {
-      this.doSearch(this.data.activeSearchKeyword, tab);
-    } else if (tab === 'others' && !this.data.otherInsightsLoaded && !this.data.otherInsightsLoading) {
+    if (tab === 'others' && !this.data.otherInsightsLoaded && !this.data.otherInsightsLoading) {
       this.loadOtherInsights();
+    } else {
+      this.applyInsightFilters();
     }
+  },
+
+  async loadPeriodOptions() {
+    const app = getApp();
+    let periods = app.globalData.periods || [];
+
+    if (!periods.length) {
+      try {
+        const res = await courseService.getPeriods();
+        periods = res.list || res.items || (Array.isArray(res) ? res : []);
+        app.globalData.periods = periods;
+      } catch (error) {
+        logger.warn('加载小凡看见期次筛选失败:', error);
+      }
+    }
+
+    const seenIds = new Set();
+    const periodOptions = [{ id: '', name: '所有期次' }];
+    periods.forEach((period) => {
+      const id = period?._id || period?.id;
+      if (!id || seenIds.has(String(id))) return;
+      seenIds.add(String(id));
+      periodOptions.push({
+        id: String(id),
+        name: period.name || period.title || '未命名期次'
+      });
+    });
+
+    const selectedPeriodIndex = Math.max(
+      0,
+      periodOptions.findIndex(
+        (option) => option.id === String(this.data.selectedPeriodId || '')
+      )
+    );
+    const selectedPeriodId = periodOptions[selectedPeriodIndex]?.id || '';
+
+    this.setData({ periodOptions, selectedPeriodIndex, selectedPeriodId });
+    this.applyInsightFilters();
+  },
+
+  filterInsightList(insights = []) {
+    const periodId = String(this.data.selectedPeriodId || '');
+    const keyword = (this.data.activeSearchKeyword || '').trim().toLowerCase();
+
+    return insights.filter((item) => {
+      const matchesPeriod =
+        !periodId || String(item.periodId || '') === periodId;
+      if (!matchesPeriod) return false;
+      if (!keyword) return true;
+
+      return [item.title, item.courseTitle, item.preview]
+        .some((value) => String(value || '').toLowerCase().includes(keyword));
+    });
+  },
+
+  applyInsightFilters() {
+    const hasActiveFilter = Boolean(
+      this.data.selectedPeriodId || this.data.activeSearchKeyword
+    );
+    this.setData({
+      searchResults: this.filterInsightList(this.data.insights),
+      otherSearchResults: this.filterInsightList(this.data.otherInsights),
+      isSearchMode: hasActiveFilter
+    });
+  },
+
+  onPeriodChange(e) {
+    const selectedPeriodIndex = Number(e.detail.value) || 0;
+    const selectedPeriodId =
+      this.data.periodOptions[selectedPeriodIndex]?.id || '';
+    this.setData({ selectedPeriodIndex, selectedPeriodId });
+    this.applyInsightFilters();
   },
 
   formatInsightList(rawList, overrideAvatar) {
@@ -372,54 +451,27 @@ Page({
   onSearchClear() {
     this.setData({
       searchKeyword: '',
-      activeSearchKeyword: '',
-      isSearchMode: false,
-      searchResults: [],
-      otherSearchResults: []
+      activeSearchKeyword: ''
     });
+    this.applyInsightFilters();
   },
 
   onSearchSubmit() {
     const keyword = (this.data.searchKeyword || '').trim();
     if (!keyword) {
       this.setData({
-        activeSearchKeyword: '',
-        isSearchMode: false,
-        searchResults: [],
-        otherSearchResults: []
+        activeSearchKeyword: ''
       });
+      this.applyInsightFilters();
       return;
     }
     this.setData({ activeSearchKeyword: keyword });
-    this.doSearch(keyword, this.data.activeTab);
+    this.applyInsightFilters();
   },
 
-  async doSearch(keyword, tab) {
-    this.setData({ searchLoading: true });
-    try {
-      if (tab === 'mine') {
-        const res = await insightService.searchInsights(keyword, { limit: 50 });
-        const rawList = res.list || (Array.isArray(res) ? res : []);
-        const formatted = this.formatInsightList(rawList);
-        this.setData({ searchResults: formatted, isSearchMode: true });
-      } else {
-        // 他人 tab：前端过滤已加载的数据
-        if (!this.data.otherInsightsLoaded) {
-          await this.loadOtherInsights();
-        }
-        const kw = keyword.toLowerCase();
-        const filtered = this.data.otherInsights.filter(item =>
-          (item.title || '').toLowerCase().includes(kw) ||
-          (item.preview || '').toLowerCase().includes(kw) ||
-          (item.periodName || '').toLowerCase().includes(kw)
-        );
-        this.setData({ otherSearchResults: filtered, isSearchMode: true });
-      }
-    } catch (err) {
-      wx.showToast({ title: '搜索失败', icon: 'none' });
-    } finally {
-      this.setData({ searchLoading: false });
-    }
+  doSearch(keyword) {
+    this.setData({ activeSearchKeyword: (keyword || '').trim() });
+    this.applyInsightFilters();
   },
 
   async loadOtherInsights() {
@@ -488,6 +540,7 @@ Page({
       });
 
       this.setData({ otherInsights: formatted, otherInsightsLoaded: true });
+      this.applyInsightFilters();
     } catch (err) {
       logger.error('加载他人洞见失败:', err);
     } finally {

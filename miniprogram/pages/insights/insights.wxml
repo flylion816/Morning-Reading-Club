@@ -10,10 +10,22 @@
 
   <!-- 搜索框：仅在查看自己时显示，放在 tab 上方 -->
   <view class="insight-search-bar" wx:if="{{!isOtherUser}}">
+    <picker
+      class="insight-period-picker"
+      mode="selector"
+      range="{{periodOptions}}"
+      range-key="name"
+      value="{{selectedPeriodIndex}}"
+      bindchange="onPeriodChange">
+      <view class="insight-period-picker-value">
+        <text class="insight-period-picker-text">{{periodOptions[selectedPeriodIndex].name}}</text>
+        <text class="insight-period-picker-arrow">▼</text>
+      </view>
+    </picker>
     <view class="insight-search-input-wrap">
       <input
         class="insight-search-input"
-        placeholder="在标题、内容中搜索关键词"
+        placeholder="搜索标题、内容"
         placeholder-style="color:#bbb"
         value="{{searchKeyword}}"
         bindinput="onSearchInput"

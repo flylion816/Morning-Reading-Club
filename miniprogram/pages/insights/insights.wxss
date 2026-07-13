@@ -377,12 +377,47 @@
 .insight-search-bar {
   display: flex;
   align-items: center;
-  gap: 16rpx;
+  gap: 12rpx;
   margin-bottom: 16rpx;
+}
+
+.insight-period-picker {
+  width: 176rpx;
+  flex-shrink: 0;
+}
+
+.insight-period-picker-value {
+  height: 72rpx;
+  padding: 0 12rpx;
+  border-radius: 40rpx;
+  background: #fff;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10rpx;
+  box-sizing: border-box;
+}
+
+.insight-period-picker-text {
+  min-width: 0;
+  max-width: 120rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #555;
+  font-size: 24rpx;
+}
+
+.insight-period-picker-arrow {
+  flex-shrink: 0;
+  color: #999;
+  font-size: 16rpx;
 }
 
 .insight-search-input-wrap {
   flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   background: #fff;
@@ -420,7 +455,7 @@
   color: #fff;
   font-size: 26rpx;
   font-weight: 600;
-  padding: 0 28rpx;
+  padding: 0 24rpx;
   height: 72rpx;
   line-height: 72rpx;
   border-radius: 40rpx;
