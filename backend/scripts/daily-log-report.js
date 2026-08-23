@@ -9,6 +9,7 @@
  *   node daily-log-report.js --test             # 测试模式（不发邮件，输出到控制台）
  *   node daily-log-report.js --no-email         # 写正式报告但不发送邮件
  *   node daily-log-report.js --hours 48         # 分析过去48小时
+ *   node daily-log-report.js --dry-run          # 达到阈值时只演练清理，不修改日志
  *
  * Cron配置（每天17:00北京时间）：
  *   0 17 * * * /usr/bin/node /var/www/morning-reading/backend/scripts/daily-log-report.js >> /var/www/logs/daily-report.log 2>&1
@@ -18,6 +19,12 @@ const fs = require('fs');
 const path = require('path');
 const { execSync, spawnSync } = require('child_process');
 const { isTrackedApiPath } = require('../src/utils/monitoring-rules');
+const {
+  bytesToHuman,
+  getDiskPenalty,
+  getDiskUsage,
+  runCleanup,
+} = require('./disk-log-cleanup');
 
 // ============================================================
 // 配置
@@ -53,6 +60,14 @@ const CONFIG = {
   },
   mailTo: '308965039@qq.com',
   mailFrom: '"晨读营服务器" <308965039@qq.com>',
+
+  diskCleanup: {
+    thresholdPercent: 90,
+    emergencyPercent: 99,
+    retentionDays: 7,
+    cooldownMs: 6 * 60 * 60 * 1000,
+    journalFallback: true,
+  },
 };
 
 // ============================================================
@@ -62,6 +77,7 @@ const CONFIG = {
 const args = process.argv.slice(2);
 const isTestMode = args.includes('--test');
 const noEmail = args.includes('--no-email');
+const isDryRun = args.includes('--dry-run') || process.env.DAILY_LOG_CLEANUP_DRY_RUN === '1';
 const hoursIdx = args.indexOf('--hours');
 function parseHoursBack(value) {
   if (value === undefined) return 24;
@@ -488,6 +504,21 @@ function collectInfrastructureAlerts(systemStatus) {
   const alerts = [];
   const dnsReasons = [];
 
+  if (!Number.isFinite(systemStatus.disk?.usedPercent)) {
+    alerts.push({
+      id: 'disk-check-failed',
+      message: systemStatus.disk?.summary || '根分区磁盘检查失败',
+      count: 1,
+      severity: 'medium',
+      category: 'actionable',
+      summary: '磁盘检查失败',
+      likelyCause: systemStatus.disk?.error || '无法读取 df -P -k / 的结果。',
+      recommendedAction: '检查巡检用户的 df 权限和系统命令是否可用。',
+      autoRepairEligible: false,
+      samples: [systemStatus.disk?.summary || '磁盘检查失败'],
+    });
+  }
+
   if (!systemStatus.pm2Autostart?.ok) {
     alerts.push({
       id: 'pm2-autostart-unhealthy',
@@ -532,13 +563,8 @@ function collectInfrastructureAlerts(systemStatus) {
 function getSystemStatus() {
   const status = {};
 
-  // 磁盘使用
-  try {
-    const df = execSync("df -h / | tail -1 | awk '{print $5}'", { encoding: 'utf-8', timeout: 3000 });
-    status.disk = df.trim();
-  } catch (e) {
-    status.disk = 'N/A';
-  }
+  // 磁盘使用：使用 POSIX 格式，避免 df -h 的本地化输出无法解析
+  status.disk = getDiskUsage('/');
 
   // 系统负载
   try {
@@ -646,7 +672,9 @@ function generateHTML(report) {
   const totalWarns = warnGroups.reduce((s, g) => s + g.count, 0);
   const totalExceptions = exceptionGroups.reduce((s, g) => s + g.count, 0);
 
-  const healthScore = calculateHealthScore(totalErrors, totalExceptions, httpStats.status5xx, infrastructureAlerts);
+  const healthScore = calculateHealthScore(totalErrors, totalExceptions, httpStats.status5xx, infrastructureAlerts, systemStatus.disk);
+  const diskPenalty = getDiskPenalty(systemStatus.disk?.usedPercent);
+  const diskCleanup = report.diskCleanup || { status: 'pending', actions: [], reclaimedBytes: 0 };
 
   const healthColor = healthScore >= 80 ? '#27ae60' : healthScore >= 50 ? '#f39c12' : '#e74c3c';
   const healthEmoji = healthScore >= 80 ? '✅' : healthScore >= 50 ? '⚠️' : '🔴';
@@ -758,7 +786,8 @@ ${exceptionGroups.map(g => `
   <tr><td style="padding: 6px 0; color: #888; width: 120px;">当前在线实例</td><td>${pm2Status.online}/${pm2Status.total}</td></tr>
   <tr><td style="padding: 6px 0; color: #888;">当前连续运行时长</td><td>${pm2Status.uptime}</td></tr>
   <tr><td style="padding: 6px 0; color: #888;">当前内存使用</td><td>${pm2Status.memory > 0 ? pm2Status.memory + ' MB' : 'N/A'}</td></tr>
-  <tr><td style="padding: 6px 0; color: #888;">磁盘使用</td><td>${systemStatus.disk}</td></tr>
+  <tr><td style="padding: 6px 0; color: #888;">磁盘使用</td><td>${escapeHtml(systemStatus.disk?.summary || 'N/A')}（${bytesToHuman(systemStatus.disk?.availableBytes)} 可用）</td></tr>
+  <tr><td style="padding: 6px 0; color: #888;">磁盘扣分</td><td>${diskPenalty > 0 ? `-${diskPenalty} 分` : '0 分'}</td></tr>
   <tr><td style="padding: 6px 0; color: #888;">系统负载</td><td>${systemStatus.load}</td></tr>
   <tr><td style="padding: 6px 0; color: #888;">MongoDB 备份</td><td>${systemStatus.lastBackup}</td></tr>
   <tr><td style="padding: 6px 0; color: #888;">MySQL 同步</td><td>${systemStatus.mysqlSync}</td></tr>
@@ -768,6 +797,13 @@ ${exceptionGroups.map(g => `
   <tr><td style="padding: 6px 0; color: #888;">DNS 探测</td><td>${systemStatus.dnsProbe?.summary || 'N/A'}</td></tr>
   ${systemStatus.docker.map(d => `<tr><td style="padding: 6px 0; color: #888;">Docker</td><td>${d}</td></tr>`).join('')}
 </table>
+
+<h2 style="font-size: 16px; color: #2c3e50; border-bottom: 2px solid #bdc3c7; padding-bottom: 8px;">🧹 自动日志清理</h2>
+<div style="background: #f8f9fa; padding: 12px; margin: 8px 0 18px; border-left: 4px solid ${diskCleanup.status === 'completed' ? '#27ae60' : diskCleanup.status === 'skipped' ? '#3498db' : '#f39c12'}; border-radius: 0 6px 6px 0; font-size: 13px;">
+  <strong>${escapeHtml(formatCleanupStatus(diskCleanup))}</strong>
+  <div style="margin-top: 6px;">清理前：${escapeHtml(diskCleanup.before?.summary || systemStatus.disk?.summary || 'N/A')}；清理后：${escapeHtml(diskCleanup.after?.summary || 'N/A')}；预计/实际回收：${bytesToHuman(diskCleanup.reclaimedBytes || 0)}</div>
+  ${diskCleanup.actions?.length ? `<div style="margin-top: 6px;">${diskCleanup.actions.slice(0, 12).map(action => `${escapeHtml(action.action)} → ${escapeHtml(action.target)}：${escapeHtml(action.result)}${action.error ? `（${escapeHtml(action.error)}）` : ''}`).join('<br>')}</div>` : ''}
+</div>
 
 ${infrastructureAlerts.length > 0 ? `
 <h2 style="font-size: 16px; color: #c0392b; border-bottom: 2px solid #c0392b; padding-bottom: 8px;">🛡️ 基础设施告警</h2>
@@ -837,7 +873,7 @@ function resolveOutputDir() {
   return fallbackDir;
 }
 
-function calculateHealthScore(totalErrors, totalExceptions, status5xx, infrastructureAlerts = []) {
+function calculateHealthScore(totalErrors, totalExceptions, status5xx, infrastructureAlerts = [], disk = null) {
   let healthScore = 100;
   if (totalErrors > 0) healthScore -= Math.min(totalErrors * 5, 40);
   if (totalExceptions > 0) healthScore -= Math.min(totalExceptions * 15, 30);
@@ -850,14 +886,31 @@ function calculateHealthScore(totalErrors, totalExceptions, status5xx, infrastru
     }, 0);
     healthScore -= Math.min(infraPenalty, 40);
   }
+  healthScore -= getDiskPenalty(disk?.usedPercent);
   return Math.max(0, healthScore);
+}
+
+function formatCleanupStatus(cleanup) {
+  if (!cleanup || cleanup.status === 'pending') return '等待清理结果';
+  if (cleanup.status === 'skipped') {
+    const reason = {
+      'below-threshold': '磁盘低于90%，未触发',
+      cooldown: '处于6小时冷却期，已跳过',
+      'disk-check-failed': '磁盘检查失败，未执行',
+    }[cleanup.skippedReason] || '未触发';
+    return `⏭️ ${reason}`;
+  }
+  if (cleanup.status === 'completed') return cleanup.dryRun ? '🧪 dry-run：已演练，未修改日志' : '✅ 已完成，未停止线上服务';
+  if (cleanup.status === 'partial-failure') return '⚠️ 部分清理失败，线上服务未重启';
+  return `❌ 清理失败：${cleanup.skippedReason || '未知原因'}`;
 }
 
 function buildReportSummary(report) {
   const totalErrors = report.errorGroups.reduce((s, g) => s + g.count, 0);
   const totalWarns = report.warnGroups.reduce((s, g) => s + g.count, 0);
   const totalExceptions = report.exceptionGroups.reduce((s, g) => s + g.count, 0);
-  const healthScore = calculateHealthScore(totalErrors, totalExceptions, report.httpStats.status5xx, report.infrastructureAlerts);
+  const diskPenalty = getDiskPenalty(report.systemStatus.disk?.usedPercent);
+  const healthScore = calculateHealthScore(totalErrors, totalExceptions, report.httpStats.status5xx, report.infrastructureAlerts, report.systemStatus.disk);
 
   return {
     reportId: `${report.timeRange.to.toISOString()}-${healthScore}-${totalErrors}-${totalWarns}-${totalExceptions}`,
@@ -868,6 +921,13 @@ function buildReportSummary(report) {
       to: report.timeRange.to.toISOString(),
     },
     score: healthScore,
+    scoreBreakdown: {
+      errors: totalErrors > 0 ? Math.min(totalErrors * 5, 40) : 0,
+      exceptions: totalExceptions > 0 ? Math.min(totalExceptions * 15, 30) : 0,
+      status5xx: report.httpStats.status5xx > 0 ? Math.min(report.httpStats.status5xx * 5, 25) : 0,
+      infrastructure: Math.min(report.infrastructureAlerts.reduce((sum, alert) => sum + (alert.severity === 'high' ? 20 : alert.severity === 'medium' ? 10 : 5), 0), 40),
+      disk: diskPenalty,
+    },
     counts: {
       errors: totalErrors,
       warnings: totalWarns,
@@ -880,6 +940,7 @@ function buildReportSummary(report) {
     pm2Status: report.pm2Status,
     systemStatus: report.systemStatus,
     infrastructureAlerts: report.infrastructureAlerts,
+    diskCleanup: report.diskCleanup || null,
     topErrors: report.errorGroups.slice(0, 10).map(group => ({
       message: group.message,
       count: group.count,
@@ -1029,7 +1090,8 @@ async function main() {
   const infrastructureAlerts = collectInfrastructureAlerts(systemStatus);
 
   console.log(`\n🖥️  PM2 当前状态: ${pm2Status.online}/${pm2Status.total} 在线, 连续运行 ${pm2Status.uptime}, ${pm2Status.memory}MB 内存`);
-  console.log(`   磁盘: ${systemStatus.disk}, 负载: ${systemStatus.load}`);
+  console.log(`   磁盘: ${systemStatus.disk?.summary || 'N/A'}, 负载: ${systemStatus.load}`);
+  console.log(`   磁盘扣分: ${getDiskPenalty(systemStatus.disk?.usedPercent)}`);
   console.log(`   PM2 自启动: ${systemStatus.pm2Autostart?.summary || 'N/A'}`);
   console.log(`   DNS 解析器: ${systemStatus.dnsResolver?.summary || 'N/A'}`);
   console.log(`   DNS 探测: ${systemStatus.dnsProbe?.summary || 'N/A'}`);
@@ -1047,15 +1109,33 @@ async function main() {
     timeRange: { from: cutoffTime, to: now },
   };
 
-  const html = generateHTML(report);
-  const reportSummary = buildReportSummary(report);
-  const artifacts = writeReportArtifacts(reportSummary, html, { testMode: isTestMode });
+  // 先落盘本次统计，再执行清理，避免清理动作影响本次日志分析。
+  let html = generateHTML(report);
+  let reportSummary = buildReportSummary(report);
+  let artifacts = writeReportArtifacts(reportSummary, html, { testMode: isTestMode });
+
+  const diskCleanup = runCleanup({
+    diskBefore: systemStatus.disk,
+    appLogDir: CONFIG.logDir,
+    thresholdPercent: CONFIG.diskCleanup.thresholdPercent,
+    emergencyPercent: CONFIG.diskCleanup.emergencyPercent,
+    retentionDays: CONFIG.diskCleanup.retentionDays,
+    cooldownMs: CONFIG.diskCleanup.cooldownMs,
+    journalFallback: CONFIG.diskCleanup.journalFallback,
+    dryRun: isDryRun,
+  });
+  report.diskCleanup = diskCleanup;
+  console.log(`   自动清理: ${formatCleanupStatus(diskCleanup)}`);
+
+  // 将清理结果写回同一份 HTML/JSON 报告。
+  html = generateHTML(report);
+  reportSummary = buildReportSummary(report);
+  artifacts = writeReportArtifacts(reportSummary, html, { testMode: isTestMode });
 
   const totalErrors = errorGroups.reduce((s, g) => s + g.count, 0);
   const totalExceptions = exceptionGroups.reduce((s, g) => s + g.count, 0);
 
-  let statusEmoji = '✅';
-  if (totalErrors > 0 || totalExceptions > 0) statusEmoji = '⚠️';
+  let statusEmoji = reportSummary.score >= 80 ? '✅' : reportSummary.score >= 50 ? '⚠️' : '🔴';
   if (totalErrors > 20 || totalExceptions > 0) statusEmoji = '🔴';
 
   const dateStr = `${now.getMonth() + 1}/${now.getDate()}`;
@@ -1092,8 +1172,21 @@ async function main() {
   console.log(`\n✅ 日志巡检完成\n`);
 }
 
-main().catch(err => {
-  console.error(`❌ 脚本执行失败: ${err.message}`);
-  console.error(err.stack);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch(err => {
+    console.error(`❌ 脚本执行失败: ${err.message}`);
+    console.error(err.stack);
+    process.exit(1);
+  });
+}
+
+module.exports = {
+  CONFIG,
+  calculateHealthScore,
+  collectInfrastructureAlerts,
+  formatCleanupStatus,
+  generateHTML,
+  getSystemStatus,
+  getDiskPenalty,
+  buildReportSummary,
+};
