@@ -499,10 +499,11 @@ sudo chmod 755 /var/www/logs 2>/dev/null || true
 log_info "部署后端..."
 if [ -d "$EXTRACT_DIR/backend" ]; then
   sudo cp -r "$EXTRACT_DIR/backend/src" "$SERVER_PATH/backend/"
+  sudo cp -r "$EXTRACT_DIR/backend/scripts" "$SERVER_PATH/backend/" 2>/dev/null || true
   sudo cp -r "$EXTRACT_DIR/backend/package.json" "$SERVER_PATH/backend/"
   sudo cp -r "$EXTRACT_DIR/backend/package-lock.json" "$SERVER_PATH/backend/" 2>/dev/null || true
   sudo cp -r "$EXTRACT_DIR/backend/pm2.config.js" "$SERVER_PATH/backend/" 2>/dev/null || true
-  log_success "后端文件已覆盖"
+  log_success "后端文件和巡检脚本已覆盖"
 fi
 
 log_info "部署管理后台..."
