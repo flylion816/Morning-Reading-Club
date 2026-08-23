@@ -14,7 +14,7 @@
 - [x] 2.2 Add filesystem tests for allowlists, rotated-log retention, lock/cooldown, and command failures.
 - [x] 2.3 Run backend lint and targeted tests.
 - [x] 2.4 Run `node backend/scripts/daily-log-report.js --test --hours 1` locally without email.
-- [ ] 2.5 Validate production with dry-run first, then enable cleanup only after user confirmation.
+- [x] 2.5 Validate production with dry-run first, then enable cleanup only after user confirmation.
 
 ## 3. Documentation
 
