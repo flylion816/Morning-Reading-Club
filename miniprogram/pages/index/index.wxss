@@ -1138,7 +1138,7 @@
 .insight-item {
   background: var(--app-paper-muted) !important;
   border-radius: 0;
-  padding: 20rpx 4rpx 20rpx 22rpx;
+  padding: 20rpx 16rpx 20rpx 22rpx;
   border-left: 4rpx solid #9cc7f6;
   display: flex;
   flex-direction: row;
@@ -1257,6 +1257,18 @@
   color: var(--theme-primary);
   font-weight: 600;
   line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.insight-period-name {
+  max-width: 144rpx;
+  flex-shrink: 0;
+  color: #8190a5;
+  font-size: 19rpx;
+  font-weight: 500;
+  line-height: 1.4;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

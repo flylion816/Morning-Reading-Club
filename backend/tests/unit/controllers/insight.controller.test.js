@@ -181,6 +181,7 @@ describe('Insight Controller - 102+ 完整测试', () => {
         },
         '../utils/response': responseUtils,
         '../utils/logger': loggerStub,
+        '../utils/tenantContext': { getCurrentTenantId: () => 'tenant_1' },
         '../services/sync.service': { publishSyncEvent: publishSyncEventStub }
       }
     );
@@ -1872,6 +1873,48 @@ describe('Insight Controller - 102+ 完整测试', () => {
 
       const ids = res.json.firstCall.args[0].data.list.map(item => item._id);
       expect(ids).to.deep.equal(['new-day-18', 'new-day-1', 'old-day-22']);
+    });
+  });
+
+  describe('TC-MOBILE-ADMIN: 小程序管理员全量小凡看见', () => {
+    it('TC-MOBILE-ADMIN-001: 管理员可分页读取当前租户全部已完成小凡看见', async () => {
+      req.user = { userId: fixtures.testUsers.adminUser._id.toString(), role: 'admin' };
+      req.query = { page: '2', limit: '10' };
+
+      const mockInsights = [fixtures.testInsights.user1ToUser2];
+      const chain = {
+        populate: sandbox.stub().returnsThis(),
+        sort: sandbox.stub().returnsThis(),
+        skip: sandbox.stub().returnsThis(),
+        limit: sandbox.stub().returnsThis(),
+        select: sandbox.stub().returnsThis(),
+        exec: sandbox.stub().resolves(mockInsights)
+      };
+      InsightStub.find.returns(chain);
+      InsightStub.countDocuments.resolves(46);
+
+      await insightController.getMobileAdminInsights(req, res, next);
+
+      const query = InsightStub.find.firstCall.args[0];
+      expect(query).to.include({ type: 'insight', status: 'completed' });
+      expect(query).to.have.property('tenantId', 'tenant_1');
+      expect(chain.skip.calledWith(10)).to.equal(true);
+      expect(chain.limit.calledWith(10)).to.equal(true);
+      expect(res.json.firstCall.args[0].data.pagination).to.deep.include({
+        page: 2,
+        limit: 10,
+        total: 46,
+        pages: 5
+      });
+    });
+
+    it('TC-MOBILE-ADMIN-002: 普通用户调用全量接口返回 403', async () => {
+      req.user = { userId: fixtures.testUsers.user1._id.toString(), role: 'user' };
+
+      await insightController.getMobileAdminInsights(req, res, next);
+
+      expect(res.status.calledWith(403)).to.equal(true);
+      expect(InsightStub.find.called).to.equal(false);
     });
   });
 

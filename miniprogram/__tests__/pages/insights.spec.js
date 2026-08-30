@@ -1,6 +1,7 @@
 jest.mock('../../services/insight.service.js', () => ({
   getSentRequests: jest.fn(),
   getUserInsightsList: jest.fn(),
+  getMobileAdminInsights: jest.fn(),
   getInsightsList: jest.fn()
 }));
 
@@ -26,6 +27,7 @@ describe('insights page period and keyword filters', () => {
   let pageConfig;
   let pageInstance;
   let courseService;
+  let insightService;
 
   beforeEach(() => {
     jest.resetModules();
@@ -45,6 +47,7 @@ describe('insights page period and keyword filters', () => {
     }));
 
     courseService = require('../../services/course.service.js');
+    insightService = require('../../services/insight.service.js');
     require('../../pages/insights/insights.js');
 
     pageInstance = {
@@ -55,6 +58,9 @@ describe('insights page period and keyword filters', () => {
       }
     };
     courseService.getPeriods.mockReset();
+    insightService.getSentRequests.mockReset();
+    insightService.getUserInsightsList.mockReset();
+    insightService.getMobileAdminInsights.mockReset();
   });
 
   afterEach(() => {
@@ -177,5 +183,64 @@ describe('insights page period and keyword filters', () => {
     });
 
     expect(pageInstance.loadOtherInsights).toHaveBeenCalledTimes(1);
+  });
+
+  test('admin loads every page without consulting approved requests', async () => {
+    pageInstance.setData({ isAdmin: true });
+    insightService.getMobileAdminInsights
+      .mockResolvedValueOnce({
+        list: [
+          {
+            _id: 'admin_1',
+            day: 1,
+            content: '第一条',
+            targetUserId: { _id: 'user_a', nickname: '甲' },
+            periodId: { _id: 'period_1', name: '内在之光' },
+            sectionId: { day: 1, title: '第一天' }
+          }
+        ],
+        pagination: { page: 1, limit: 100, total: 2, pages: 2 }
+      })
+      .mockResolvedValueOnce({
+        list: [
+          {
+            _id: 'admin_2',
+            day: 2,
+            content: '第二条',
+            targetUserId: { _id: 'user_b', nickname: '乙' },
+            periodId: { _id: 'period_1', name: '内在之光' },
+            sectionId: { day: 2, title: '第二天' }
+          }
+        ],
+        pagination: { page: 2, limit: 100, total: 2, pages: 2 }
+      });
+
+    await pageInstance.loadOtherInsights.call(pageInstance);
+
+    expect(insightService.getMobileAdminInsights.mock.calls).toEqual([
+      [{ page: 1, limit: 100 }],
+      [{ page: 2, limit: 100 }]
+    ]);
+    expect(insightService.getSentRequests).not.toHaveBeenCalled();
+    expect(pageInstance.data.otherInsights.map(item => item.id).sort()).toEqual([
+      'admin_1',
+      'admin_2'
+    ]);
+  });
+
+  test('regular user retains the approved-request discovery flow', async () => {
+    pageInstance.setData({ isAdmin: false });
+    insightService.getSentRequests.mockResolvedValue({
+      list: [{ toUserId: { _id: 'user_a', nickname: '甲' } }]
+    });
+    insightService.getUserInsightsList.mockResolvedValue({ list: [] });
+
+    await pageInstance.loadOtherInsights.call(pageInstance);
+
+    expect(insightService.getSentRequests).toHaveBeenCalledWith({
+      status: 'approved',
+      limit: 100
+    });
+    expect(insightService.getMobileAdminInsights).not.toHaveBeenCalled();
   });
 });

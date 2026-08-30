@@ -9,6 +9,7 @@ const {
   buildEligibleScenes,
   mergeAutoTopUpScenes,
   maybeAutoTopUpSubscriptions,
+  maybeAutoTopUpNextDayStudyReminder,
   requestSceneSubscriptions,
   resetAutoTopUpState
 } = require('../../utils/subscribe-auto-topup');
@@ -47,7 +48,7 @@ describe('subscribe-auto-topup helper', () => {
     const nextDay = merged.find(item => item.scene === 'next_day_study_reminder');
     expect(nextDay.localOnly).toBe(true);
     expect(nextDay.autoTopUpTarget).toBe(1);
-    expect(nextDay.scheduledSendText).toBe('每天 05:45 自动发送');
+    expect(nextDay.scheduledSendText).toBe('每天 05:55 自动发送');
   });
 
   test('buildEligibleScenes should respect thresholds and period requirement', () => {
@@ -65,7 +66,8 @@ describe('subscribe-auto-topup helper', () => {
       {
         scene: 'next_day_study_reminder',
         templateId: AUTO_TOP_UP_POLICIES.next_day_study_reminder.templateId,
-        availableCount: 0
+        availableCount: 0,
+        nextDay: { canRequest: true }
       }
     ];
 
@@ -82,6 +84,62 @@ describe('subscribe-auto-topup helper', () => {
       'comment_received',
       'next_day_study_reminder'
     ]);
+  });
+
+  test('maybeAutoTopUpNextDayStudyReminder should request only when target tomorrow is not queued', async () => {
+    subscribeMessageService.getSettings.mockResolvedValue({
+      scenes: [
+        {
+          scene: 'next_day_study_reminder',
+          templateId: AUTO_TOP_UP_POLICIES.next_day_study_reminder.templateId,
+          availableCount: 0,
+          nextDay: {
+            canRequest: true,
+            alreadyQueued: false,
+            periodId: 'period_123'
+          }
+        }
+      ]
+    });
+    global.wx.requestSubscribeMessage.mockImplementation(({ tmplIds, success }) => {
+      success({ [tmplIds[0]]: 'accept' });
+    });
+    global.wx.getSetting.mockImplementation(({ success }) => {
+      success({ subscriptionsSetting: { itemSettings: {} } });
+    });
+    subscribeMessageService.saveGrants.mockResolvedValue({ scenes: [] });
+
+    await maybeAutoTopUpNextDayStudyReminder({ periodId: 'period_123' });
+
+    expect(subscribeMessageService.getSettings).toHaveBeenCalledWith({ periodId: 'period_123' });
+    expect(global.wx.requestSubscribeMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tmplIds: [AUTO_TOP_UP_POLICIES.next_day_study_reminder.templateId]
+      })
+    );
+  });
+
+  test('maybeAutoTopUpNextDayStudyReminder should skip an already queued target date', async () => {
+    subscribeMessageService.getSettings.mockResolvedValue({
+      scenes: [
+        {
+          scene: 'next_day_study_reminder',
+          templateId: AUTO_TOP_UP_POLICIES.next_day_study_reminder.templateId,
+          availableCount: 1,
+          nextDay: {
+            canRequest: false,
+            alreadyQueued: true,
+            periodId: 'period_123'
+          }
+        }
+      ]
+    });
+
+    const result = await maybeAutoTopUpNextDayStudyReminder({ periodId: 'period_123' });
+
+    expect(result).toMatchObject({ skipped: true, reason: 'no_eligible_scene' });
+    expect(global.wx.requestSubscribeMessage).not.toHaveBeenCalled();
+    expect(subscribeMessageService.saveGrants).not.toHaveBeenCalled();
   });
 
   test('buildEligibleScenes should ignore scenes without templateId', () => {

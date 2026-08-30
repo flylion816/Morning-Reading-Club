@@ -19,7 +19,9 @@ jest.mock('../../services/activity.service', () => ({
   track: jest.fn(() => Promise.resolve())
 }));
 jest.mock('../../services/subscribe-message.service', () => ({}));
-jest.mock('../../utils/subscribe-auto-topup', () => ({}));
+jest.mock('../../utils/subscribe-auto-topup', () => ({
+  maybeAutoTopUpNextDayStudyReminder: jest.fn(() => Promise.resolve())
+}));
 jest.mock('../../config/constants', () => ({
   STORAGE_KEYS: {
     TOKEN: 'token'
@@ -37,6 +39,7 @@ describe('course-detail page markdown support', () => {
   let pageInstance;
   let commentService;
   let getAvatarColorByUserId;
+  let subscribeAutoTopUp;
 
   beforeEach(() => {
     jest.resetModules();
@@ -57,6 +60,7 @@ describe('course-detail page markdown support', () => {
 
     commentService = require('../../services/comment.service');
     ({ getAvatarColorByUserId } = require('../../utils/formatters'));
+    subscribeAutoTopUp = require('../../utils/subscribe-auto-topup');
     require('../../pages/course-detail/course-detail');
 
     pageInstance = {
@@ -174,6 +178,24 @@ describe('course-detail page markdown support', () => {
 
     expect(shareConfig.title).toBe('狮子的打卡日记');
     expect(shareConfig.path).toBe('/pages/course-detail/course-detail?id=section_123&checkinId=checkin_456');
+  });
+
+  test('should top up next-day reminder before entering immersive reading', async () => {
+    pageInstance.data.courseId = 'section_123';
+    pageInstance.data.periodId = 'period_123';
+
+    await pageInstance.handleImmersiveReading.call(pageInstance);
+
+    expect(subscribeAutoTopUp.maybeAutoTopUpNextDayStudyReminder).toHaveBeenCalledWith({
+      periodId: 'period_123',
+      sectionId: 'section_123',
+      courseId: 'section_123',
+      sourcePage: 'course-detail',
+      sourceAction: 'immersive_reading_click'
+    });
+    expect(wx.navigateTo).toHaveBeenCalledWith({
+      url: '/pages/reading-mode/reading-mode?id=section_123&periodId=period_123'
+    });
   });
 
   test('should normalize closing video urls for display', () => {

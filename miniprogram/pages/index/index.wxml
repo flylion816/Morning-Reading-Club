@@ -321,8 +321,8 @@
             </view>
             <view class="insight-content-preview">
               <view class="insight-title-row">
-                <text wx:if="{{item.courseDayLabel}}" class="insight-day-chip">{{item.courseDayLabel}}</text>
                 <text class="insight-period-tag">{{item.courseTitle}}</text>
+                <text wx:if="{{item.periodName}}" class="insight-period-name">{{item.periodName}}</text>
               </view>
               <block wx:if="{{item.mediaType === 'image' && item.imageUrl}}">
                 <view

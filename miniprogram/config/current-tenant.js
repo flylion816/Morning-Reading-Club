@@ -4,7 +4,7 @@ module.exports = {
   "slug": "fanren",
   "brandName": "凡人共读",
   "wxAppId": "wx2b9a3c1d5e4195f8",
-  "cloudEnv": "cloudbase-d1gulwh3a82346ea9",
+  "cloudEnv": null,
   "wechatPayMchId": null,
   "subscribeTemplates": {
     "enrollment_result": "Qzn9auOyMjCKUaHrfekzK0XMaQ64nO0mfdikQNXjbdo",

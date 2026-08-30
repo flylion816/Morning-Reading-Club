@@ -213,6 +213,22 @@ describe('Insight Service Tests (Stage 6: Task 6.1)', () => {
     });
   });
 
+  describe('[INSIGHT-ADMIN] 小程序管理员全量列表', () => {
+    test('should request the mobile admin all-insights endpoint with pagination', async () => {
+      request.get.mockResolvedValue({
+        list: [],
+        pagination: { page: 2, limit: 100, total: 0, pages: 0 }
+      });
+
+      await insightService.getMobileAdminInsights({ page: 2, limit: 100 });
+
+      expect(request.get).toHaveBeenCalledWith('/insights/mobile-admin/all', {
+        page: 2,
+        limit: 100
+      });
+    });
+  });
+
   describe('[INSIGHT-8] 获取我收到的 insights 列表（别人发给我的）', () => {
     test('should return insights received by current user', async () => {
       const userId = 'user_123';

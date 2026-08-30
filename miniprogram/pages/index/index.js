@@ -209,6 +209,18 @@ function buildInsightCourseDisplay(item = {}) {
   };
 }
 
+function getInsightPeriodName(item = {}, periodNameById = new Map()) {
+  const period = item.periodId && typeof item.periodId === 'object' ? item.periodId : {};
+  const periodId = period._id || period.id || item.periodId || '';
+  return String(
+    period.name ||
+    period.title ||
+    item.periodName ||
+    periodNameById.get(String(periodId)) ||
+    ''
+  ).trim();
+}
+
 function truncateText(text = '', maxLength = RECENT_CHECKIN_PREVIEW_MAX_LENGTH) {
   const normalized = String(text || '').replace(/\s+/g, ' ').trim();
   if (normalized.length <= maxLength) return normalized;
@@ -803,6 +815,14 @@ Page({
 
       // 计算当前期次
       const periodsList = periods.list || periods.items || periods || [];
+      this._periodNameById = new Map(
+        periodsList
+          .map((period) => [
+            String(period._id || period.id || ''),
+            period.name || period.title || ''
+          ])
+          .filter(([id, name]) => id && name)
+      );
       const enrollmentList = userEnrollments.list || userEnrollments || [];
       const enrolledPeriodIds = enrollmentList
         .filter((e) => e.status === 'active' || e.status === 'completed')
@@ -1303,6 +1323,7 @@ Page({
           title: item.sectionId?.title || '学习反馈',
           courseTitle: courseDisplay.title,
           courseDayLabel: courseDisplay.dayLabel,
+          periodName: getInsightPeriodName(item, this._periodNameById),
           preview: preview || (item.imageUrl ? '点击查看图片反馈' : '暂无内容'),
           mediaType: item.mediaType || 'text',
           imageUrl: item.imageUrl || null,
@@ -1376,6 +1397,7 @@ Page({
           id: item._id || item.id,
           courseTitle: courseDisplay.title,
           courseDayLabel: courseDisplay.dayLabel,
+          periodName: getInsightPeriodName(item, this._periodNameById),
           preview: preview || (item.imageUrl ? '点击查看图片反馈' : '暂无内容'),
           mediaType: item.mediaType || 'text',
           imageUrl: item.imageUrl || null,
@@ -2202,7 +2224,7 @@ Page({
    * 去晨读
    * 腾讯会议入口暂时屏蔽，统一进入当前课节的沉浸阅读页。
    */
-  handleJoinMeeting() {
+  async handleJoinMeeting() {
     const { currentPeriod, todaySection } = this.data;
     const periodId =
       todaySection?.periodId || currentPeriod?._id || currentPeriod?.id || '';
@@ -2212,6 +2234,17 @@ Page({
       wx.showToast({ title: '课节信息不存在', icon: 'none' });
       return;
     }
+
+    await subscribeAutoTopUp
+      .maybeAutoTopUpNextDayStudyReminder({
+        periodId,
+        sectionId,
+        sourcePage: 'index',
+        sourceAction: 'morning_read_click'
+      })
+      .catch((error) => {
+        console.warn('补充明日开课通知失败，继续进入晨读:', error);
+      });
 
     activityService.track('meeting_enter', {
       targetType: 'immersive_reading',

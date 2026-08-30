@@ -5,7 +5,7 @@ module.exports = {
 
   // —— 与 appId 强绑定（构建期固化）——
   wxAppId: 'wx2b9a3c1d5e4195f8',
-  cloudEnv: 'cloudbase-d1gulwh3a82346ea9',
+  cloudEnv: null,
   wechatPayMchId: null,
 
   // 订阅消息模板 ID（按场景键，与 subscribe-auto-topup.js AUTO_TOP_UP_POLICIES 对齐）

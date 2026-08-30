@@ -35,6 +35,7 @@ describe('[MT-0] 仓库默认租户构建态', () => {
   test('提交到仓库的默认配置保持为 fanren', () => {
     expect(committedTenant.slug).toBe('fanren');
     expect(committedTenant.wxAppId).toBe(VALID_CONFIG.wxAppId);
+    expect(committedTenant.cloudEnv).toBeNull();
     expect(committedProjectConfig.appid).toBe(VALID_CONFIG.wxAppId);
   });
 });

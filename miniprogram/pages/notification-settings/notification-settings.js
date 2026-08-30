@@ -29,12 +29,16 @@ function normalizeResponse(response) {
     const scheduledSendText = scene.scheduledSendText
       || (scene.scheduledSendDate ? `计划发送：${formatDateTime(scene.scheduledSendDate)}` : '')
       || (policy ? policy.scheduledSendText : '');
+    const queuedSendText = scene.queuedSendDate
+      ? `已排队：${formatDateTime(scene.queuedSendDate)}`
+      : '';
 
     return {
       ...scene,
       lastAcceptedAtText: formatDateTime(scene.lastAcceptedAt),
       autoTopUpTarget: scene.autoTopUpTarget || (policy ? policy.target : 0),
       scheduledSendText,
+      queuedSendText,
       localOnly: !!scene.localOnly,
       sceneHint:
         scene.scene === 'next_day_study_reminder'

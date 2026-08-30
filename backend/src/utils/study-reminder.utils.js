@@ -1,24 +1,24 @@
 const DAY_MS = 24 * 60 * 60 * 1000;
-const SHANGHAI_TIMEZONE = 'Asia/Shanghai';
-const SHANGHAI_DATE_TIME_FORMATTER = new Intl.DateTimeFormat('zh-CN', {
+const SHANGHAI_TIMEZONE = "Asia/Shanghai";
+const SHANGHAI_DATE_TIME_FORMATTER = new Intl.DateTimeFormat("zh-CN", {
   timeZone: SHANGHAI_TIMEZONE,
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-  hour12: false
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: false,
 });
-const SHANGHAI_DATE_FORMATTER = new Intl.DateTimeFormat('zh-CN', {
+const SHANGHAI_DATE_FORMATTER = new Intl.DateTimeFormat("zh-CN", {
   timeZone: SHANGHAI_TIMEZONE,
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit'
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
 });
 
 function pad(value) {
-  return String(value).padStart(2, '0');
+  return String(value).padStart(2, "0");
 }
 
 function normalizeDate(date) {
@@ -36,12 +36,15 @@ function toDateTimeParts(date = new Date()) {
     return {};
   }
 
-  return SHANGHAI_DATE_TIME_FORMATTER.formatToParts(normalized).reduce((acc, part) => {
-    if (part.type !== 'literal') {
-      acc[part.type] = part.value;
-    }
-    return acc;
-  }, {});
+  return SHANGHAI_DATE_TIME_FORMATTER.formatToParts(normalized).reduce(
+    (acc, part) => {
+      if (part.type !== "literal") {
+        acc[part.type] = part.value;
+      }
+      return acc;
+    },
+    {},
+  );
 }
 
 function toDateParts(date = new Date()) {
@@ -50,12 +53,15 @@ function toDateParts(date = new Date()) {
     return {};
   }
 
-  return SHANGHAI_DATE_FORMATTER.formatToParts(normalized).reduce((acc, part) => {
-    if (part.type !== 'literal') {
-      acc[part.type] = part.value;
-    }
-    return acc;
-  }, {});
+  return SHANGHAI_DATE_FORMATTER.formatToParts(normalized).reduce(
+    (acc, part) => {
+      if (part.type !== "literal") {
+        acc[part.type] = part.value;
+      }
+      return acc;
+    },
+    {},
+  );
 }
 
 function getShanghaiDateKey(date = new Date()) {
@@ -72,7 +78,9 @@ function getShanghaiDateTime(dateKey, hour = 0, minute = 0, second = 0) {
     return null;
   }
 
-  return new Date(`${dateKey}T${pad(hour)}:${pad(minute)}:${pad(second)}+08:00`);
+  return new Date(
+    `${dateKey}T${pad(hour)}:${pad(minute)}:${pad(second)}+08:00`,
+  );
 }
 
 function addShanghaiDays(dateKey, days = 0) {
@@ -106,7 +114,7 @@ function isDateKeyWithinRange(dateKey, startKey, endKey) {
 function getPeriodDateKeys(period = {}) {
   return {
     startKey: getShanghaiDateKey(period.startDate),
-    endKey: getShanghaiDateKey(period.endDate)
+    endKey: getShanghaiDateKey(period.endDate),
   };
 }
 
@@ -115,67 +123,73 @@ function formatShanghaiDateTimeLabel(date = new Date()) {
   return `${year}-${month}-${day} ${hour}:${minute}`;
 }
 
-function buildNextDayStudyReminderPlan({ period = null, now = new Date() } = {}) {
+function buildNextDayStudyReminderPlan({
+  period = null,
+  now = new Date(),
+} = {}) {
   if (!period) {
     return {
-      status: 'missing_period'
+      status: "missing_period",
     };
   }
 
   const { startKey, endKey } = getPeriodDateKeys(period);
   if (!startKey || !endKey) {
     return {
-      status: 'missing_period_dates',
+      status: "missing_period_dates",
       period,
       startKey,
-      endKey
+      endKey,
     };
   }
 
   const todayKey = getShanghaiDateKey(now);
   const sendDateKey = addShanghaiDays(todayKey, 1);
-  const sendDate = getShanghaiDateTime(sendDateKey, 5, 45, 0);
+  const sendDate = getShanghaiDateTime(sendDateKey, 5, 55, 0);
   const dayIndex = diffShanghaiDays(startKey, sendDateKey);
 
   if (dayIndex === null) {
     return {
-      status: 'invalid_period_dates',
-      period,
-      startKey,
-      endKey,
-      sendDate,
-      sendDateKey
-    };
-  }
-
-  if (!isDateKeyWithinRange(sendDateKey, startKey, endKey)) {
-    return {
-      status: 'out_of_range',
+      status: "invalid_period_dates",
       period,
       startKey,
       endKey,
       sendDate,
       sendDateKey,
-      dayIndex
+    };
+  }
+
+  if (!isDateKeyWithinRange(sendDateKey, startKey, endKey)) {
+    return {
+      status: "out_of_range",
+      period,
+      startKey,
+      endKey,
+      sendDate,
+      sendDateKey,
+      dayIndex,
     };
   }
 
   return {
-    status: 'ok',
+    status: "ok",
     period,
     startKey,
     endKey,
     todayKey,
     sendDate,
     sendDateKey,
-    dayIndex
+    dayIndex,
   };
 }
 
-function buildScheduledStudyReminderPlan({ period = null, sendDate = null } = {}) {
+function buildScheduledStudyReminderPlan({
+  period = null,
+  sendDate = null,
+} = {}) {
   if (!period || !sendDate) {
     return {
-      status: 'missing_period'
+      status: "missing_period",
     };
   }
 
@@ -185,46 +199,57 @@ function buildScheduledStudyReminderPlan({ period = null, sendDate = null } = {}
 
   if (dayIndex === null) {
     return {
-      status: 'invalid_period_dates',
-      period,
-      startKey,
-      endKey,
-      sendDate,
-      sendDateKey
-    };
-  }
-
-  if (!isDateKeyWithinRange(sendDateKey, startKey, endKey)) {
-    return {
-      status: 'out_of_range',
+      status: "invalid_period_dates",
       period,
       startKey,
       endKey,
       sendDate,
       sendDateKey,
-      dayIndex
+    };
+  }
+
+  if (!isDateKeyWithinRange(sendDateKey, startKey, endKey)) {
+    return {
+      status: "out_of_range",
+      period,
+      startKey,
+      endKey,
+      sendDate,
+      sendDateKey,
+      dayIndex,
     };
   }
 
   return {
-    status: 'ok',
+    status: "ok",
     period,
     startKey,
     endKey,
     sendDate,
     sendDateKey,
-    dayIndex
+    dayIndex,
   };
 }
 
 function normalizeGrantContext(context) {
-  if (!context || typeof context !== 'object' || Array.isArray(context)) {
+  if (!context || typeof context !== "object" || Array.isArray(context)) {
     return {};
   }
 
   const normalized = {};
-  ['periodId', 'sourceAction', 'sourcePage', 'sourceId', 'sectionId', 'courseId'].forEach(key => {
-    if (context[key] !== undefined && context[key] !== null && context[key] !== '') {
+  [
+    "periodId",
+    "sourceAction",
+    "sourcePage",
+    "sourceId",
+    "sectionId",
+    "courseId",
+  ].forEach((key) => {
+    if (
+      context[key] !== undefined &&
+      context[key] !== null &&
+      context[key] !== ""
+    ) {
       normalized[key] = String(context[key]);
     }
   });
@@ -236,7 +261,7 @@ function normalizeGrantContext(context) {
         acc[key] = context[key];
       }
       return acc;
-    }, {})
+    }, {}),
   };
 }
 
@@ -250,5 +275,5 @@ module.exports = {
   getShanghaiDateKey,
   getShanghaiDateTime,
   isDateKeyWithinRange,
-  normalizeGrantContext
+  normalizeGrantContext,
 };

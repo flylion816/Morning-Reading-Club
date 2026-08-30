@@ -477,26 +477,53 @@ Page({
   async loadOtherInsights() {
     this.setData({ otherInsightsLoading: true });
     try {
-      const sentRes = await insightService.getSentRequests({ status: 'approved', limit: 100 });
-      const approvedRequests = sentRes.list || (Array.isArray(sentRes) ? sentRes : []);
-
-      const userMap = {};
-      approvedRequests.forEach(req => {
-        const userObj = req.toUserId;
-        const uid = (typeof userObj === 'object' ? userObj?._id : userObj) || null;
-        if (uid && !userMap[uid]) userMap[uid] = userObj;
-      });
-
       const allRaw = [];
-      await Promise.all(Object.entries(userMap).map(async ([userId, userInfo]) => {
-        const res = await insightService.getUserInsightsList(userId, { limit: 100 });
-        const list = (res.list || (Array.isArray(res) ? res : [])).filter(item => item.isAccessible !== false);
-        const nickname = (typeof userInfo === 'object' ? userInfo?.nickname || userInfo?.name : '') || '用户';
-        const avatarUrl = (typeof userInfo === 'object' ? userInfo?.avatarUrl : '') || '';
-        list.forEach(insight => {
-          allRaw.push({ ...insight, _targetUserId: userId, _targetNickname: nickname, _targetAvatarUrl: avatarUrl });
+      if (this.data.isAdmin) {
+        let page = 1;
+        let pages = 1;
+        do {
+          const res = await insightService.getMobileAdminInsights({ page, limit: 100 });
+          const list = res.list || (Array.isArray(res) ? res : []);
+          list.forEach(insight => {
+            const populatedTarget =
+              insight.targetUserId && typeof insight.targetUserId === 'object'
+                ? insight.targetUserId
+                : null;
+            const populatedCreator =
+              insight.userId && typeof insight.userId === 'object' ? insight.userId : null;
+            const displayUser = populatedTarget || populatedCreator || {};
+            allRaw.push({
+              ...insight,
+              _targetUserId:
+                displayUser._id || insight.targetUserId || insight.userId || null,
+              _targetNickname: displayUser.nickname || displayUser.name || '用户',
+              _targetAvatarUrl: displayUser.avatarUrl || displayUser.avatar || ''
+            });
+          });
+          pages = Math.max(Number(res.pagination?.pages) || 1, 1);
+          page += 1;
+        } while (page <= pages);
+      } else {
+        const sentRes = await insightService.getSentRequests({ status: 'approved', limit: 100 });
+        const approvedRequests = sentRes.list || (Array.isArray(sentRes) ? sentRes : []);
+
+        const userMap = {};
+        approvedRequests.forEach(req => {
+          const userObj = req.toUserId;
+          const uid = (typeof userObj === 'object' ? userObj?._id : userObj) || null;
+          if (uid && !userMap[uid]) userMap[uid] = userObj;
         });
-      }));
+
+        await Promise.all(Object.entries(userMap).map(async ([userId, userInfo]) => {
+          const res = await insightService.getUserInsightsList(userId, { limit: 100 });
+          const list = (res.list || (Array.isArray(res) ? res : [])).filter(item => item.isAccessible !== false);
+          const nickname = (typeof userInfo === 'object' ? userInfo?.nickname || userInfo?.name : '') || '用户';
+          const avatarUrl = (typeof userInfo === 'object' ? userInfo?.avatarUrl : '') || '';
+          list.forEach(insight => {
+            allRaw.push({ ...insight, _targetUserId: userId, _targetNickname: nickname, _targetAvatarUrl: avatarUrl });
+          });
+        }));
+      }
 
       allRaw.sort(compareInsightsByPeriodAndDayDesc);
 

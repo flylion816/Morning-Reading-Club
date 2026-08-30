@@ -30,9 +30,11 @@ describe('Auth Middleware - 100% Coverage', () => {
   let authMiddleware;
   let optionalAuthMiddleware;
   let adminMiddleware;
+  let systemContextActive;
 
   beforeEach(() => {
     sandbox = sinon.createSandbox();
+    systemContextActive = false;
 
     req = {
       headers: {},
@@ -84,7 +86,16 @@ describe('Auth Middleware - 100% Coverage', () => {
       '../utils/response': responseStub,
       '../models/User': UserStub,
       '../utils/logger': loggerStub,
-      '../utils/tenantContext': { withSystemContext: (tenantId, fn) => fn() }
+      '../utils/tenantContext': {
+        withSystemContext: (tenantId, fn) => {
+          systemContextActive = true;
+          try {
+            return fn();
+          } finally {
+            systemContextActive = false;
+          }
+        }
+      }
     });
 
     authMiddleware = auth.authMiddleware;
@@ -293,7 +304,7 @@ describe('Auth Middleware - 100% Coverage', () => {
 
       // Mock User.findById
       const mockUser = { _id: testUsers.regularUser.userId, nickname: 'Test User' };
-      UserStub.findById.resolves(mockUser);
+      UserStub.findById.returns({ exec: sandbox.stub().resolves(mockUser) });
       jwtStub.generateTokens.returns({
         accessToken: 'new_access_token',
         refreshToken: 'new_refresh_token'
@@ -305,6 +316,45 @@ describe('Auth Middleware - 100% Coverage', () => {
       expect(jwtStub.generateTokens.called).to.be.true;
       expect(res.setHeader.calledWithMatch('X-New-Token')).to.be.true;
       expect(res.setHeader.calledWithMatch('X-New-Refresh-Token')).to.be.true;
+    });
+
+    it('TC-AUTH-MW-019A: 应该在租户上下文内执行续期用户查询', async () => {
+      req.headers.authorization = authorizationHeaders.validBearer();
+      jwtStub.verifyAccessToken.returns({
+        userId: testUsers.regularUser.userId,
+        role: 'user',
+        tenantId: 'test-tenant-id',
+        iat: Math.floor(Date.now() / 1000) - 3000,
+        exp: Math.floor(Date.now() / 1000) + 600
+      });
+
+      const mockUser = { _id: testUsers.regularUser.userId, nickname: 'Test User' };
+      let execCalled = false;
+      UserStub.findById.returns({
+        exec() {
+          execCalled = true;
+          if (!systemContextActive) {
+            return Promise.reject(new Error('查询在租户上下文外执行'));
+          }
+          return Promise.resolve(mockUser);
+        },
+        then(resolve, reject) {
+          if (!systemContextActive) {
+            return reject(new Error('查询在租户上下文外执行'));
+          }
+          return resolve(mockUser);
+        }
+      });
+      jwtStub.generateTokens.returns({
+        accessToken: 'new_access_token',
+        refreshToken: 'new_refresh_token'
+      });
+
+      await authMiddleware(req, res, next);
+
+      expect(execCalled).to.be.true;
+      expect(loggerStub.error.called).to.be.false;
+      expect(res.setHeader.calledWith('X-New-Token', 'new_access_token')).to.be.true;
     });
 
     it('TC-AUTH-MW-020: 应该在Token有效期充足时不进行续期', async () => {
@@ -357,7 +407,7 @@ describe('Auth Middleware - 100% Coverage', () => {
       jwtStub.verifyAccessToken.returns(almostExpiredDecoded);
 
       const mockUser = { _id: testUsers.regularUser.userId };
-      UserStub.findById.resolves(mockUser);
+      UserStub.findById.returns({ exec: sandbox.stub().resolves(mockUser) });
       jwtStub.generateTokens.throws(new Error('生成token失败'));
 
       await authMiddleware(req, res, next);

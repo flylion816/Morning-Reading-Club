@@ -48,6 +48,15 @@ class InsightService {
   }
 
   /**
+   * 小程序管理员获取当前租户全部已完成的小凡看见
+   * @param {Object} params 查询参数 {page, limit}
+   * @returns {Promise}
+   */
+  getMobileAdminInsights(params = {}) {
+    return request.get('/insights/mobile-admin/all', params);
+  }
+
+  /**
    * 获取指定期次的小凡看见列表
    * @param {string} periodId 期次ID
    * @param {Object} params 查询参数 {page, limit, type}

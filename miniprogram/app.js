@@ -9,13 +9,6 @@ const { tenantStorage } = require('./utils/storage');
 App({
   onLaunch(options) {
     try {
-      if (wx.cloud && currentTenant.cloudEnv) {
-        wx.cloud.init({
-          env: currentTenant.cloudEnv,
-          traceUser: true
-        });
-      }
-
       logger.info('晨读营小程序启动', options);
       logger.debug('当前环境:', envConfig.currentEnv);
 

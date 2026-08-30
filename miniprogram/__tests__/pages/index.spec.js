@@ -25,6 +25,8 @@ jest.mock('../../services/checkin.service.js', () => ({
 
 jest.mock('../../services/insight.service.js', () => ({
   getInsightsList: jest.fn(),
+  getSentRequests: jest.fn(),
+  getUserInsightsList: jest.fn(),
   getReceivedRequests: jest.fn(),
   approveRequest: jest.fn(),
   rejectRequest: jest.fn()
@@ -36,6 +38,10 @@ jest.mock('../../services/notification.service.js', () => ({
 
 jest.mock('../../services/activity.service.js', () => ({
   track: jest.fn(() => Promise.resolve())
+}));
+
+jest.mock('../../utils/subscribe-auto-topup', () => ({
+  maybeAutoTopUpNextDayStudyReminder: jest.fn(() => Promise.resolve())
 }));
 
 jest.mock('../../services/communityActivity.service', () => ({
@@ -107,8 +113,9 @@ let periodAccess;
 let insightService;
 let activityService;
 let communityActivityService;
-let completionReportService;
-let imprintService;
+  let completionReportService;
+  let imprintService;
+  let subscribeAutoTopUp;
 let notificationService;
 
 describe('index page', () => {
@@ -148,6 +155,7 @@ describe('index page', () => {
     communityActivityService = require('../../services/communityActivity.service');
     completionReportService = require('../../services/completion-report.service');
     imprintService = require('../../services/imprint.service.js');
+    subscribeAutoTopUp = require('../../utils/subscribe-auto-topup');
     require('../../pages/index/index.js');
 
     pageInstance = {
@@ -178,6 +186,8 @@ describe('index page', () => {
     periodAccess.getPeriodAccess.mockReset();
     periodAccess.hasPaidEnrollment.mockClear();
     insightService.getInsightsList.mockReset();
+    insightService.getSentRequests.mockReset();
+    insightService.getUserInsightsList.mockReset();
     insightService.getReceivedRequests.mockReset();
     activityService.track.mockClear();
     notificationService.getUnreadCount.mockReset();
@@ -308,6 +318,66 @@ describe('index page', () => {
       'activity_2'
     ]);
     expect(pageInstance.data.upcomingActivitiesHasMore).toBe(true);
+  });
+
+  test('should resolve my recent insight period name from a string period id', async () => {
+    pageInstance._periodNameById = new Map([
+      ['period_resilience', '韧性之树']
+    ]);
+    insightService.getInsightsList.mockResolvedValue({
+      list: [
+        {
+          _id: 'insight_1',
+          summary: '今天练习了积极主动。',
+          sectionId: { _id: 'section_2', day: 2, title: '思维方式的力量' },
+          periodId: 'period_resilience'
+        }
+      ]
+    });
+
+    const cards = await pageInstance.loadRecentInsights.call(pageInstance);
+
+    expect(cards).toHaveLength(1);
+    expect(cards[0]).toMatchObject({
+      id: 'insight_1',
+      courseDayLabel: '第2天',
+      courseTitle: '思维方式的力量',
+      periodName: '韧性之树'
+    });
+  });
+
+  test('should add the period snapshot to other recent insight cards', async () => {
+    insightService.getSentRequests.mockResolvedValue({
+      list: [
+        {
+          toUserId: {
+            _id: 'user_other',
+            nickname: '小树',
+            avatarUrl: ''
+          }
+        }
+      ]
+    });
+    insightService.getUserInsightsList.mockResolvedValue({
+      list: [
+        {
+          _id: 'insight_other_1',
+          summary: '看见你持续练习。',
+          periodName: '内在之光',
+          sectionId: { _id: 'section_3', day: 3, title: '以原则为中心' }
+        }
+      ]
+    });
+
+    await pageInstance.loadRecentOtherInsights.call(pageInstance);
+
+    expect(pageInstance.data.recentOtherInsights).toHaveLength(1);
+    expect(pageInstance.data.recentOtherInsights[0]).toMatchObject({
+      id: 'insight_other_1',
+      courseDayLabel: '第3天',
+      courseTitle: '以原则为中心',
+      periodName: '内在之光'
+    });
   });
 
   test('should open checkin detail directly when sectionId exists', async () => {
@@ -448,6 +518,7 @@ describe('index page', () => {
     expect(courseService.getPeriodSections).not.toHaveBeenCalled();
     expect(pageInstance.data.currentPeriod).toBe(null);
     expect(pageInstance.data.todaySection).toBe(null);
+    expect(pageInstance._periodNameById.get('period_active')).toBe('韧性之树');
     expect(pageInstance.data.todayTaskEmptyState).toMatchObject({
       type: 'no-enrollment',
       coverLabel: '未加入',
@@ -523,7 +594,7 @@ describe('index page', () => {
     expect(pageInstance.data.unreadNotificationCount).toBe(0);
   });
 
-  test('should open immersive reading from the morning reading button', () => {
+  test('should open immersive reading from the morning reading button', async () => {
     pageInstance.data.currentPeriod = {
       _id: 'period_1'
     };
@@ -532,7 +603,14 @@ describe('index page', () => {
       periodId: 'period_1'
     };
 
-    pageInstance.handleJoinMeeting.call(pageInstance);
+    await pageInstance.handleJoinMeeting.call(pageInstance);
+
+    expect(subscribeAutoTopUp.maybeAutoTopUpNextDayStudyReminder).toHaveBeenCalledWith({
+      periodId: 'period_1',
+      sectionId: 'section_today',
+      sourcePage: 'index',
+      sourceAction: 'morning_read_click'
+    });
 
     expect(activityService.track).toHaveBeenCalledWith('meeting_enter', {
       targetType: 'immersive_reading',
@@ -550,13 +628,13 @@ describe('index page', () => {
     expect(wx.navigateToMiniProgram).not.toHaveBeenCalled();
   });
 
-  test('should show an error when morning reading has no section id', () => {
+  test('should show an error when morning reading has no section id', async () => {
     pageInstance.data.currentPeriod = {
       _id: 'period_1'
     };
     pageInstance.data.todaySection = {};
 
-    pageInstance.handleJoinMeeting.call(pageInstance);
+    await pageInstance.handleJoinMeeting.call(pageInstance);
 
     expect(wx.showToast).toHaveBeenCalledWith({
       title: '课节信息不存在',
@@ -566,7 +644,7 @@ describe('index page', () => {
     expect(activityService.track).not.toHaveBeenCalled();
   });
 
-  test('should pass reading completion state into immersive reading', () => {
+  test('should pass reading completion state into immersive reading', async () => {
     pageInstance.data.currentPeriod = {
       _id: 'period_1'
     };
@@ -578,7 +656,7 @@ describe('index page', () => {
       readingCompletedAt: '2026-05-15T08:00:00.000Z'
     };
 
-    pageInstance.handleJoinMeeting.call(pageInstance);
+    await pageInstance.handleJoinMeeting.call(pageInstance);
 
     expect(wx.navigateTo).toHaveBeenCalledWith({
       url:
@@ -618,7 +696,7 @@ describe('index page', () => {
     jest.useRealTimers();
   });
 
-  test('should handle morning read prompt primary action', () => {
+  test('should handle morning read prompt primary action', async () => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date(2026, 4, 15, 5, 55));
     wx.clearStorageSync();
@@ -632,6 +710,8 @@ describe('index page', () => {
     pageInstance.data.showMorningReadPrompt = true;
 
     pageInstance.handleMorningReadPromptGo.call(pageInstance);
+    await Promise.resolve();
+    await Promise.resolve();
 
     expect(wx.setStorageSync).toHaveBeenCalledWith(
       'morning_read_prompt_date',

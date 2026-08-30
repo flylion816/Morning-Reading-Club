@@ -7,11 +7,13 @@ const PROMPT_THROTTLE_STORAGE_PREFIX = 'subscribe_prompt_throttle';
 
 let settingsCache = null;
 let settingsCacheAt = 0;
+let settingsCacheKey = '';
 let inFlightPromise = null;
 
 function resetAutoTopUpState() {
   settingsCache = null;
   settingsCacheAt = 0;
+  settingsCacheKey = '';
   inFlightPromise = null;
 }
 
@@ -93,11 +95,11 @@ const AUTO_TOP_UP_POLICIES = {
   next_day_study_reminder: {
     scene: 'next_day_study_reminder',
     title: '明日开课通知',
-    description: '次日早上 5:45 发送晨读营开课通知',
+    description: '次日早上 5:55 发送晨读营开课通知',
     templateId: _t.next_day_study_reminder || '',
     target: 1,
     requiresPeriodId: true,
-    scheduledSendText: '每天 05:45 自动发送'
+    scheduledSendText: '每天 05:55 自动发送'
   },
   insight_created: {
     scene: 'insight_created',
@@ -174,25 +176,28 @@ function writePromptThrottleState(state) {
   }
 }
 
-function buildPromptThrottleKey(scene = {}) {
-  return `${scene.scene || 'unknown'}:${scene.templateId || ''}`;
+function buildPromptThrottleKey(scene = {}, periodId = null) {
+  const periodSuffix = scene.scene === 'next_day_study_reminder' && periodId
+    ? `:${periodId}`
+    : '';
+  return `${scene.scene || 'unknown'}:${scene.templateId || ''}${periodSuffix}`;
 }
 
-function isPromptThrottled(scene) {
+function isPromptThrottled(scene, periodId = null) {
   if (!scene?.templateId) {
     return false;
   }
 
   const today = getTodayDateKey();
   const state = readPromptThrottleState();
-  if (state[buildPromptThrottleKey(scene)] === today) {
+  if (state[buildPromptThrottleKey(scene, periodId)] === today) {
     return true;
   }
 
   return false;
 }
 
-function markPromptThrottled(scenes = []) {
+function markPromptThrottled(scenes = [], options = {}) {
   if (!Array.isArray(scenes) || !scenes.length) {
     return;
   }
@@ -202,7 +207,7 @@ function markPromptThrottled(scenes = []) {
 
   scenes.forEach(scene => {
     if (scene?.templateId) {
-      state[buildPromptThrottleKey(scene)] = today;
+      state[buildPromptThrottleKey(scene, options.periodId)] = today;
     }
   });
 
@@ -245,6 +250,11 @@ function mergeSceneMetadata(scene = {}) {
     ...scene,
     autoTopUpTarget,
     scheduledSendDate,
+    scheduledSendDateKey: scene.scheduledSendDateKey || null,
+    queuedSendDate: scene.queuedSendDate || null,
+    queuedSendDateKey: scene.queuedSendDateKey || null,
+    queuedPeriodId: scene.queuedPeriodId || scene.queuedContext?.periodId || null,
+    queuedContext: scene.queuedContext || null,
     scheduledSendText,
     deliveryBlocked: !!scene.deliveryBlocked,
     deliveryBlockedReason: scene.deliveryBlockedReason || null,
@@ -308,6 +318,10 @@ function buildEligibleScenes(scenes = [], options = {}) {
     const target = getSceneAutoTopUpTarget(scene);
     if (target <= 0) {
       return false;
+    }
+
+    if (scene.scene === 'next_day_study_reminder' && periodId && scene.nextDay) {
+      return scene.nextDay?.canRequest === true;
     }
 
     return !!scene.deliveryBlocked || normalizeCount(scene.availableCount) < target;
@@ -448,21 +462,33 @@ async function requestSceneSubscriptions(requestScenes = [], options = {}) {
   }
 }
 
-async function getSettings(forceRefresh = false) {
+async function getSettings(options = {}) {
+  const normalizedOptions = typeof options === 'boolean'
+    ? { forceRefresh: options }
+    : options || {};
+  const { forceRefresh = false, periodId = null } = normalizedOptions;
   const now = Date.now();
-  if (!forceRefresh && settingsCache && now - settingsCacheAt < SETTINGS_CACHE_TTL_MS) {
+  const cacheKey = String(periodId || '__all__');
+  if (
+    !forceRefresh &&
+    settingsCache &&
+    settingsCacheKey === cacheKey &&
+    now - settingsCacheAt < SETTINGS_CACHE_TTL_MS
+  ) {
     return settingsCache;
   }
 
-  const response = await subscribeMessageService.getSettings();
+  const response = await subscribeMessageService.getSettings(periodId ? { periodId } : {});
   settingsCache = response;
   settingsCacheAt = now;
+  settingsCacheKey = cacheKey;
   return response;
 }
 
-function updateSettingsCache(response) {
+function updateSettingsCache(response, options = {}) {
   settingsCache = response || null;
   settingsCacheAt = Date.now();
+  settingsCacheKey = String(options.periodId || '__all__');
 }
 
 function getWxSettingWithSubscriptions() {
@@ -496,10 +522,11 @@ async function maybeAutoTopUpSubscriptions(options = {}) {
     const {
       sceneKeys = null,
       periodId = null,
-      requestMode = 'remembered'
+      requestMode = 'remembered',
+      forceRefresh = false
     } = options;
     let requestScenes = [];
-    const response = await getSettings();
+    const response = await getSettings({ forceRefresh, periodId });
     const serverScenes = Array.isArray(response?.scenes) ? response.scenes : [];
     const eligibleScenes = buildEligibleScenes(serverScenes, { sceneKeys, periodId });
 
@@ -539,8 +566,8 @@ async function maybeAutoTopUpSubscriptions(options = {}) {
       requestScenes = promptableScenes.filter(
         scene => itemSettings[scene.templateId] !== 'reject' && itemSettings[scene.templateId] !== 'ban'
       );
-      const throttledScenes = requestScenes.filter(scene => isPromptThrottled(scene));
-      requestScenes = requestScenes.filter(scene => !isPromptThrottled(scene));
+      const throttledScenes = requestScenes.filter(scene => isPromptThrottled(scene, periodId));
+      requestScenes = requestScenes.filter(scene => !isPromptThrottled(scene, periodId));
       if (!requestScenes.length) {
         return {
           skipped: true,
@@ -557,7 +584,7 @@ async function maybeAutoTopUpSubscriptions(options = {}) {
     const grants = requestMeta.grants;
 
     const saveResult = await subscribeMessageService.saveGrants(grants);
-    updateSettingsCache(saveResult);
+    updateSettingsCache(saveResult, { periodId });
 
     const successfulGrantScenes = grants
       .filter(grant => grant && grant.templateId && grant.result !== 'error')
@@ -567,7 +594,7 @@ async function maybeAutoTopUpSubscriptions(options = {}) {
       }));
 
     if (requestMode !== 'remembered' && successfulGrantScenes.length > 0) {
-      markPromptThrottled(successfulGrantScenes);
+      markPromptThrottled(successfulGrantScenes, { periodId });
     }
 
     return {
@@ -593,6 +620,15 @@ async function maybeAutoTopUpSubscriptions(options = {}) {
   return inFlightPromise;
 }
 
+function maybeAutoTopUpNextDayStudyReminder(options = {}) {
+  return maybeAutoTopUpSubscriptions({
+    ...options,
+    sceneKeys: ['next_day_study_reminder'],
+    requestMode: 'any',
+    forceRefresh: true
+  });
+}
+
 module.exports = {
   AUTO_TOP_UP_POLICIES,
   MAX_SUBSCRIBE_SCENES_PER_REQUEST,
@@ -603,6 +639,7 @@ module.exports = {
   getSubscriptionSettingMap,
   mergeAutoTopUpScenes,
   maybeAutoTopUpSubscriptions,
+  maybeAutoTopUpNextDayStudyReminder,
   requestSceneSubscriptions,
   resetAutoTopUpState,
   updateSettingsCache,

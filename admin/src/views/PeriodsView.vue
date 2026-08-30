@@ -1169,26 +1169,21 @@ function getStatusType(status: string): string {
   align-items: center;
 }
 
+/* Element Plus 新版固定列使用 sticky 单元格，不再生成 .el-table__fixed-right 容器。 */
+:deep(.el-table th.el-table-fixed-column--right.el-table__cell) {
+  background-color: var(--el-table-header-bg-color, #fff) !important;
+}
+
 /* 固定操作列必须有不透明底色，否则横向滚动时会透出下方表格内容。 */
-:deep(.el-table__fixed-right),
-:deep(.el-table__fixed-right .el-table__fixed-header-wrapper),
-:deep(.el-table__fixed-right .el-table__fixed-body-wrapper) {
-  background-color: var(--admin-surface-strong, var(--el-bg-color, #fff));
+:deep(.el-table td.el-table-fixed-column--right.el-table__cell) {
+  background-color: var(--admin-surface-strong, var(--el-bg-color, #fff)) !important;
 }
 
-:deep(.el-table__fixed-right .el-table__fixed-header-wrapper th.el-table__cell) {
-  background-color: var(--el-table-header-bg-color, #fff);
+:deep(.el-table .el-table__body tr.el-table__row--striped > td.el-table-fixed-column--right.el-table__cell) {
+  background-color: var(--el-fill-color-lighter, #fafafa) !important;
 }
 
-:deep(.el-table__fixed-right .el-table__fixed-body-wrapper tr > td.el-table__cell) {
-  background-color: var(--admin-surface-strong, var(--el-bg-color, #fff));
-}
-
-:deep(.el-table__fixed-right .el-table__fixed-body-wrapper tr.el-table__row--striped > td.el-table__cell) {
-  background-color: var(--el-fill-color-lighter, #fafafa);
-}
-
-:deep(.el-table__fixed-right .el-table__fixed-body-wrapper tr.hover-row > td.el-table__cell) {
-  background-color: var(--el-table-row-hover-bg-color, var(--admin-primary-soft));
+:deep(.el-table .el-table__body tr.hover-row > td.el-table-fixed-column--right.el-table__cell) {
+  background-color: var(--el-table-row-hover-bg-color, var(--admin-primary-soft)) !important;
 }
 </style>

@@ -33,7 +33,7 @@ async function authMiddleware(req, res, next) {
       // 老 token 没有 tenantId 时跳过续期，让后续 userTenantContext 返回 403
       try {
         const user = await withSystemContext(decoded.tenantId, () =>
-          User.findById(decoded.userId || decoded._id)
+          User.findById(decoded.userId || decoded._id).exec()
         );
         if (user) {
           const newTokens = generateTokens(user);

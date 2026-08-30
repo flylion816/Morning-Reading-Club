@@ -20,7 +20,14 @@ const {
 } = require('../utils/notification-links');
 const { getCurrentTenantId } = require('../utils/tenantContext');
 
-const ADMIN_ROLES = ['platform_superadmin', 'superadmin', 'tenant_admin', 'admin', 'operator'];
+const ADMIN_ROLES = [
+  'platform_superadmin',
+  'superadmin',
+  'super_admin',
+  'tenant_admin',
+  'admin',
+  'operator'
+];
 const MAX_DANMAKU_CONTENT_LENGTH = 60;
 
 function countUnicodeChars(value) {
@@ -847,6 +854,49 @@ async function getUserInsights(req, res, next) {
           allowedPeriodIds: [...approvedPeriodIds],
           allowedInsightIds: [...approvedInsightIds]
         },
+        pagination: {
+          page: pageNumber,
+          limit: limitNumber,
+          total,
+          pages: Math.ceil(total / limitNumber)
+        }
+      })
+    );
+  } catch (error) {
+    next(error);
+  }
+}
+
+// 小程序管理员获取当前租户全部已完成小凡看见
+async function getMobileAdminInsights(req, res, next) {
+  try {
+    if (!ADMIN_ROLES.includes(req.user?.role)) {
+      return res.status(403).json(errors.forbidden('需要管理员权限'));
+    }
+
+    const pageNumber = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limitNumber = Math.min(Math.max(parseInt(req.query.limit, 10) || 100, 1), 100);
+    const query = {
+      tenantId: getCurrentTenantId(),
+      type: 'insight',
+      status: 'completed'
+    };
+
+    const total = await Insight.countDocuments(query);
+    const insights = await Insight.find(query)
+      .populate('sectionId', 'title day icon')
+      .populate('periodId', 'name title startDate endDate')
+      .populate('userId', 'nickname avatar avatarUrl _id')
+      .populate('targetUserId', 'nickname avatar avatarUrl _id')
+      .sort({ updatedAt: -1, createdAt: -1 })
+      .skip((pageNumber - 1) * limitNumber)
+      .limit(limitNumber)
+      .select('-__v')
+      .exec();
+
+    res.json(
+      success({
+        list: insights,
         pagination: {
           page: pageNumber,
           limit: limitNumber,
@@ -2906,6 +2956,7 @@ async function recordShare(req, res, next) {
 module.exports = {
   generateInsight,
   getUserInsights,
+  getMobileAdminInsights,
   getInsightDetail,
   deleteInsight,
   createInsightManual,

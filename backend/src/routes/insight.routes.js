@@ -11,6 +11,7 @@ const {
 const {
   generateInsight,
   getUserInsights,
+  getMobileAdminInsights,
   getInsightDetail,
   deleteInsight,
   createInsightManual,
@@ -78,6 +79,7 @@ router.post('/requests/:requestId/approve', authMiddleware, userTenantContext, a
 router.post('/requests/:requestId/reject', authMiddleware, userTenantContext, rejectInsightRequest);
 router.put('/requests/:requestId/revoke', authMiddleware, userTenantContext, revokeInsightRequest);
 router.get('/search', authMiddleware, userTenantContext, searchInsights);
+router.get('/mobile-admin/all', authMiddleware, userTenantContext, getMobileAdminInsights);
 router.get('/user/:userId?', authMiddleware, userTenantContext, getUserInsights);
 router.get('/period/:periodId', authMiddleware, userTenantContext, getInsightsForPeriod);
 router.put('/:insightId', authMiddleware, userTenantContext, updateInsight);

@@ -1,8 +1,8 @@
 const request = require('../utils/request');
 
 class SubscribeMessageService {
-  getSettings() {
-    return request.get('/notifications/subscriptions');
+  getSettings(params = {}) {
+    return request.get('/notifications/subscriptions', params);
   }
 
   saveGrants(grants = []) {

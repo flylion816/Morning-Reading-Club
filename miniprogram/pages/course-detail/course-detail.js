@@ -2601,8 +2601,20 @@ Page({
     wx.navigateBack();
   },
 
-  handleImmersiveReading() {
+  async handleImmersiveReading() {
     const { courseId, periodId } = this.data;
+    await subscribeAutoTopUp
+      .maybeAutoTopUpNextDayStudyReminder({
+        periodId,
+        sectionId: courseId,
+        courseId,
+        sourcePage: 'course-detail',
+        sourceAction: 'immersive_reading_click'
+      })
+      .catch((error) => {
+        console.warn('补充明日开课通知失败，继续进入沉浸阅读:', error);
+      });
+
     wx.navigateTo({
       url: `/pages/reading-mode/reading-mode?id=${courseId}&periodId=${periodId || ''}`
     });

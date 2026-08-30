@@ -42,6 +42,7 @@
         <text class="scene-desc">{{item.description}}</text>
         <text class="scene-meta" wx:if="{{item.autoTopUpTarget}}">自动补量目标：{{item.autoTopUpTarget}} 次</text>
         <text class="scene-meta" wx:if="{{item.scheduledSendText}}">{{item.scheduledSendText}}</text>
+        <text class="scene-meta" wx:if="{{item.queuedSendText}}">{{item.queuedSendText}}</text>
         <text class="scene-meta scene-meta-warning" wx:if="{{item.localOnly}}">后端尚未启用，暂不可补量</text>
         <text class="scene-meta" wx:if="{{item.sceneHint}}">{{item.sceneHint}}</text>
         <text class="scene-meta" wx:if="{{item.lastAcceptedAtText}}">最近补充：{{item.lastAcceptedAtText}}</text>
