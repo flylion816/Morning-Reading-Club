@@ -1168,4 +1168,27 @@ function getStatusType(status: string): string {
   flex-wrap: nowrap;
   align-items: center;
 }
+
+/* 固定操作列必须有不透明底色，否则横向滚动时会透出下方表格内容。 */
+:deep(.el-table__fixed-right),
+:deep(.el-table__fixed-right .el-table__fixed-header-wrapper),
+:deep(.el-table__fixed-right .el-table__fixed-body-wrapper) {
+  background-color: var(--admin-surface-strong, var(--el-bg-color, #fff));
+}
+
+:deep(.el-table__fixed-right .el-table__fixed-header-wrapper th.el-table__cell) {
+  background-color: var(--el-table-header-bg-color, #fff);
+}
+
+:deep(.el-table__fixed-right .el-table__fixed-body-wrapper tr > td.el-table__cell) {
+  background-color: var(--admin-surface-strong, var(--el-bg-color, #fff));
+}
+
+:deep(.el-table__fixed-right .el-table__fixed-body-wrapper tr.el-table__row--striped > td.el-table__cell) {
+  background-color: var(--el-fill-color-lighter, #fafafa);
+}
+
+:deep(.el-table__fixed-right .el-table__fixed-body-wrapper tr.hover-row > td.el-table__cell) {
+  background-color: var(--el-table-row-hover-bg-color, var(--admin-primary-soft));
+}
 </style>

@@ -17,6 +17,7 @@ describe('Period Controller', () => {
   let CheckinStub;
   let UserStub;
   let EnrollmentStub;
+  let SectionStub;
   let publishSyncEventStub;
 
   beforeEach(() => {
@@ -58,6 +59,11 @@ describe('Period Controller', () => {
       distinct: sandbox.stub().resolves([])
     };
 
+    SectionStub = {
+      find: sandbox.stub(),
+      insertMany: sandbox.stub()
+    };
+
     publishSyncEventStub = sandbox.stub();
 
     const responseUtils = {
@@ -76,6 +82,7 @@ describe('Period Controller', () => {
         '../models/Checkin': CheckinStub,
         '../models/User': UserStub,
         '../models/Enrollment': EnrollmentStub,
+        '../models/Section': SectionStub,
         '../utils/response': responseUtils,
         '../services/sync.service': {
           publishSyncEvent: publishSyncEventStub
@@ -414,6 +421,87 @@ describe('Period Controller', () => {
       await periodController.deletePeriod(req, res, next);
 
       expect(res.status.calledWith(404)).to.be.true;
+    });
+  });
+
+  describe('copyPeriod (Admin)', () => {
+    it('复制期次时不应复制结营视频和凡人播客内容', async () => {
+      const sourcePeriodId = new mongoose.Types.ObjectId();
+      const newPeriodId = new mongoose.Types.ObjectId();
+      const tenantId = new mongoose.Types.ObjectId();
+      const sourceSectionId = new mongoose.Types.ObjectId();
+      const sourceSection = {
+        _id: sourceSectionId,
+        periodId: sourcePeriodId,
+        day: 23,
+        title: '结营词',
+        closingVideo: {
+          url: '/uploads/closing-video.mp4',
+          coverUrl: '/uploads/closing-video.jpg'
+        },
+        podcastUrl: '/uploads/podcast.mp3',
+        podcastDescription: '凡人播客介绍',
+        podcastDuration: 180,
+        audioUrl: '/uploads/legacy-audio.mp3',
+        videoCover: '/uploads/legacy-video-cover.jpg',
+        checkinCount: 8,
+        toObject: sandbox.stub()
+      };
+      sourceSection.toObject.returns({
+        _id: sourceSection._id,
+        periodId: sourceSection.periodId,
+        day: sourceSection.day,
+        title: sourceSection.title,
+        closingVideo: sourceSection.closingVideo,
+        podcastUrl: sourceSection.podcastUrl,
+        podcastDescription: sourceSection.podcastDescription,
+        podcastDuration: sourceSection.podcastDuration,
+        audioUrl: sourceSection.audioUrl,
+        videoCover: sourceSection.videoCover,
+        checkinCount: sourceSection.checkinCount
+      });
+
+      req.params = { id: sourcePeriodId };
+      req.body = {
+        name: '新期次',
+        title: '新期次标题',
+        startDate: new Date('2026-09-01T00:00:00.000Z'),
+        endDate: new Date('2026-09-23T00:00:00.000Z'),
+        totalDays: 23,
+        price: 9900,
+        originalPrice: 0,
+        sortOrder: 0
+      };
+
+      const sourcePeriod = {
+        _id: sourcePeriodId,
+        tenantId,
+        toObject: sandbox.stub().returns({ _id: sourcePeriodId, tenantId })
+      };
+      const newPeriod = {
+        _id: newPeriodId,
+        toObject: sandbox.stub().returns({ _id: newPeriodId })
+      };
+
+      PeriodStub.findById.resolves(sourcePeriod);
+      PeriodStub.create.resolves(newPeriod);
+      SectionStub.find.resolves([sourceSection]);
+      SectionStub.insertMany.resolves([]);
+
+      await periodController.copyPeriod(req, res, next);
+
+      expect(next.called).to.be.false;
+      expect(SectionStub.insertMany.calledOnce).to.be.true;
+      const [copiedSections] = SectionStub.insertMany.firstCall.args;
+      expect(copiedSections).to.have.lengthOf(1);
+      expect(copiedSections[0]).not.to.have.property('closingVideo');
+      expect(copiedSections[0]).not.to.have.property('podcastUrl');
+      expect(copiedSections[0]).not.to.have.property('podcastDescription');
+      expect(copiedSections[0]).not.to.have.property('podcastDuration');
+      expect(copiedSections[0]).not.to.have.property('audioUrl');
+      expect(copiedSections[0].videoCover).to.equal(sourceSection.videoCover);
+      expect(copiedSections[0].periodId).to.equal(newPeriodId);
+      expect(copiedSections[0].checkinCount).to.equal(0);
     });
   });
 
